@@ -4,7 +4,16 @@ Unit tests for Blasphemer configuration module.
 
 import pytest
 from pathlib import Path
-from heretic.config import Settings, DatasetConfig
+from unittest.mock import patch
+from heretic.config import Settings, DatasetSpecification
+
+# Disable CLI parsing for all tests in this module
+@pytest.fixture(autouse=True)
+def disable_cli_parsing(monkeypatch):
+    """Disable command-line argument parsing in Settings for tests."""
+    # Mock sys.argv to prevent CLI parsing conflicts
+    import sys
+    monkeypatch.setattr(sys, 'argv', ['pytest'])
 
 
 class TestSettings:
@@ -43,33 +52,34 @@ class TestSettings:
         assert "sorry" in settings.refusal_markers
         assert "i can't" in settings.refusal_markers
     
-    def test_dtype_configuration(self):
-        """Test dtype settings."""
+    def test_dtypes_list(self):
+        """Test dtypes list configuration."""
         settings = Settings(model="test-model")
-        assert settings.compute_dtype in ["float16", "bfloat16"]
-        assert settings.cache_dtype in ["float16", "bfloat16", "auto"]
+        assert isinstance(settings.dtypes, list)
+        assert len(settings.dtypes) > 0
+        assert "auto" in settings.dtypes or "float16" in settings.dtypes
 
 
-class TestDatasetConfig:
-    """Test the DatasetConfig class."""
+class TestDatasetSpecification:
+    """Test the DatasetSpecification class."""
     
-    def test_dataset_config_creation(self):
-        """Test creating a dataset configuration."""
-        config = DatasetConfig(
-            path="test/dataset",
+    def test_dataset_spec_creation(self):
+        """Test creating a dataset specification."""
+        spec = DatasetSpecification(
+            dataset="test/dataset",
             split="train",
             column="text"
         )
-        assert config.path == "test/dataset"
-        assert config.split == "train"
-        assert config.column == "text"
+        assert spec.dataset == "test/dataset"
+        assert spec.split == "train"
+        assert spec.column == "text"
     
-    def test_dataset_config_defaults(self):
-        """Test dataset configuration with defaults."""
+    def test_dataset_spec_in_settings(self):
+        """Test dataset specifications within settings."""
         settings = Settings(model="test-model")
-        assert settings.good_prompts.path is not None
-        assert settings.bad_prompts.path is not None
-        assert settings.evaluation_prompts.path is not None
+        assert settings.good_prompts.dataset is not None
+        assert settings.bad_prompts.dataset is not None
+        assert settings.good_evaluation_prompts.dataset is not None
 
 
 class TestConfigValidation:
