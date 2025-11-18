@@ -17,6 +17,7 @@ venv/
 /config.toml
 
 # Checkpoints
+.blasphemer_checkpoints/
 .heretic_checkpoints/
 
 # Model files

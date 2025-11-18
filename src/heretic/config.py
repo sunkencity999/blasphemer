@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     )
 
     checkpoint_dir: str = Field(
-        default=".heretic_checkpoints",
+        default=".blasphemer_checkpoints",
         description="Directory to store optimization checkpoints for resuming interrupted runs.",
     )
 
@@ -162,7 +162,7 @@ class Settings(BaseSettings):
     # not to the language model. The field must have this exact name.
     model_config = SettingsConfigDict(
         toml_file="config.toml",
-        env_prefix="HERETIC_",
+        env_prefix="BLASPHEMER_",
         cli_parse_args=True,
         cli_kebab_case=True,
     )

@@ -45,11 +45,13 @@ from .utils import (
 
 def run():
     # Modified "Pagga" font from https://budavariam.github.io/asciiart-text/
-    print(f"[cyan]█░█░█▀▀░█▀▄░█▀▀░▀█▀░█░█▀▀[/]  v{version('heretic-llm')}")
-    print("[cyan]█▀█░█▀▀░█▀▄░█▀▀░░█░░█░█░░[/]")
+    print(f"[cyan]█▀▄░█░░░█▀█░█▀▀░█▀█░█░█░█▀▀░█▄█░█▀▀░█▀▄[/]  v{version('blasphemer')}")
+    print("[cyan]█▀▄░█░░░█▀█░▀▀█░█▀▀░█▀█░█▀▀░█░█░█▀▀░█▀▄[/]")
     print(
-        "[cyan]▀░▀░▀▀▀░▀░▀░▀▀▀░░▀░░▀░▀▀▀[/]  [blue underline]https://github.com/p-e-w/heretic[/]"
+        "[cyan]▀▀░░▀▀▀░▀░▀░▀▀▀░▀░░░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀[/]  [blue underline]https://github.com/sunkencity999/blasphemer[/]"
     )
+    print()
+    print("[dim]Enhanced fork of Heretic - optimized for macOS (Apple Silicon)[/]")
     print()
 
     if (
@@ -72,7 +74,7 @@ def run():
 
         print()
         print(
-            "Run [bold]heretic --help[/] or see [bold]config.default.toml[/] for details about configuration parameters."
+            "Run [bold]blasphemer --help[/] or see [bold]config.default.toml[/] for details about configuration parameters."
         )
         return
 
@@ -191,7 +193,7 @@ def run():
     
     # Create a unique study name based on the model ID
     model_hash = hashlib.md5(settings.model.encode()).hexdigest()[:8]
-    study_name = f"heretic_{Path(settings.model).name}_{model_hash}"
+    study_name = f"blasphemer_{Path(settings.model).name}_{model_hash}"
     storage_path = checkpoint_dir / f"{study_name}.db"
     storage_url = f"sqlite:///{storage_path}"
     
@@ -477,7 +479,7 @@ def run():
 
                         repo_id = questionary.text(
                             "Name of repository:",
-                            default=f"{user['name']}/{Path(settings.model).name}-heretic",
+                            default=f"{user['name']}/{Path(settings.model).name}-blasphemer",
                         ).ask()
 
                         visibility = questionary.select(
