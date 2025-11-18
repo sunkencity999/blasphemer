@@ -225,29 +225,107 @@ clone_repository() {
     
     # Check if directory already exists
     if [[ -d "$INSTALL_DIR" ]]; then
+        # Check if this script is running from inside the blasphemer directory
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        SCRIPT_IN_BLASPHEMER=false
+        if [[ "$SCRIPT_DIR" == "$INSTALL_DIR"* ]]; then
+            SCRIPT_IN_BLASPHEMER=true
+        fi
+        
         print_warning "Directory $INSTALL_DIR already exists"
-        read -p "Remove and re-clone? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            print_step "Removing existing directory..."
-            rm -rf "$INSTALL_DIR"
+        
+        # Check if it's a git repository
+        if [[ -d "$INSTALL_DIR/.git" ]]; then
+            print_info "Existing installation detected"
+            echo ""
+            echo "Options:"
+            echo "  1) Update existing installation (git pull)"
+            echo "  2) Keep existing files and continue installation"
+            echo "  3) Remove and re-clone (fresh install)"
+            echo "  4) Cancel"
+            echo ""
+            read -p "Choose option [1-4]: " -n 1 -r
+            echo
+            
+            case $REPLY in
+                1)
+                    print_step "Updating repository..."
+                    cd "$INSTALL_DIR"
+                    if git pull && git submodule update --init --recursive; then
+                        print_success "Repository updated successfully"
+                        save_state "repo_cloned"
+                        return 0
+                    else
+                        print_error "Failed to update repository"
+                        exit 1
+                    fi
+                    ;;
+                2)
+                    print_info "Using existing files, continuing with installation..."
+                    cd "$INSTALL_DIR"
+                    save_state "repo_cloned"
+                    return 0
+                    ;;
+                3)
+                    if [[ "$SCRIPT_IN_BLASPHEMER" == true ]]; then
+                        print_warning "This script is running from inside the blasphemer directory"
+                        print_info "Copying script to temp location before removing directory..."
+                        TEMP_SCRIPT="/tmp/blasphemer_install_$$.sh"
+                        cp "${BASH_SOURCE[0]}" "$TEMP_SCRIPT"
+                        chmod +x "$TEMP_SCRIPT"
+                        print_info "Restarting from temp location..."
+                        exec "$TEMP_SCRIPT"
+                    fi
+                    print_step "Removing existing directory..."
+                    rm -rf "$INSTALL_DIR"
+                    ;;
+                4)
+                    print_info "Installation cancelled by user"
+                    exit 0
+                    ;;
+                *)
+                    print_error "Invalid option"
+                    exit 1
+                    ;;
+            esac
         else
-            print_error "Installation cancelled"
-            exit 1
+            # Directory exists but is not a git repo
+            print_warning "Directory exists but is not a git repository"
+            read -p "Remove and start fresh? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                if [[ "$SCRIPT_IN_BLASPHEMER" == true ]]; then
+                    print_warning "This script is running from inside the directory"
+                    print_info "Copying script to temp location..."
+                    TEMP_SCRIPT="/tmp/blasphemer_install_$$.sh"
+                    cp "${BASH_SOURCE[0]}" "$TEMP_SCRIPT"
+                    chmod +x "$TEMP_SCRIPT"
+                    print_info "Restarting from temp location..."
+                    exec "$TEMP_SCRIPT"
+                fi
+                print_step "Removing existing directory..."
+                rm -rf "$INSTALL_DIR"
+            else
+                print_info "Installation cancelled by user"
+                exit 0
+            fi
         fi
     fi
     
-    print_step "Cloning repository with submodules..."
-    print_info "Repository: $REPO_URL"
-    print_info "Destination: $INSTALL_DIR"
-    
-    if git clone --recursive "$REPO_URL" "$INSTALL_DIR"; then
-        print_success "Repository cloned successfully"
-        cd "$INSTALL_DIR"
-        save_state "repo_cloned"
-    else
-        print_error "Failed to clone repository"
-        exit 1
+    # Clone if directory doesn't exist (or was removed above)
+    if [[ ! -d "$INSTALL_DIR" ]]; then
+        print_step "Cloning repository with submodules..."
+        print_info "Repository: $REPO_URL"
+        print_info "Destination: $INSTALL_DIR"
+        
+        if git clone --recursive "$REPO_URL" "$INSTALL_DIR"; then
+            print_success "Repository cloned successfully"
+            cd "$INSTALL_DIR"
+            save_state "repo_cloned"
+        else
+            print_error "Failed to clone repository"
+            exit 1
+        fi
     fi
 }
 
