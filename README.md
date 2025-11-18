@@ -88,7 +88,25 @@ cmake --build build --config Release --target llama-quantize -j 8
 cd ..
 ```
 
-### Basic Usage
+### Interactive Launcher (Easiest)
+
+```bash
+# Run the interactive launcher - it guides you through everything
+./blasphemer.sh
+```
+
+**Features:**
+- Menu-driven interface with numbered options
+- Automatic environment setup
+- Guided model selection with recommendations
+- Choose operations: process, convert, or resume
+- Select quantization levels
+- Pick save locations (with smart defaults)
+- Configure advanced settings
+
+Perfect for beginners and quick workflows!
+
+### Command Line Usage
 
 ```bash
 # Activate environment
@@ -98,7 +116,7 @@ source venv/bin/activate
 blasphemer meta-llama/Llama-3.1-8B-Instruct
 
 # Convert to GGUF for LM Studio
-./convert-to-gguf.sh ~/models/Llama-3.1-8B-Instruct-heretic
+./convert-to-gguf.sh ~/models/Llama-3.1-8B-Instruct-blasphemer
 
 # Resume if interrupted
 blasphemer --resume meta-llama/Llama-3.1-8B-Instruct
@@ -107,7 +125,11 @@ blasphemer --resume meta-llama/Llama-3.1-8B-Instruct
 ### First-Time Recommended Model
 
 ```bash
-# Start with a small model to test (~15-20 minutes)
+# Using interactive launcher (recommended)
+./blasphemer.sh
+# Then select: Option 1 → Phi-3-mini
+
+# Or command line
 blasphemer microsoft/Phi-3-mini-4k-instruct
 ```
 
