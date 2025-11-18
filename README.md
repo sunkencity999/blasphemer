@@ -2,6 +2,8 @@
 
 **Enhanced fork of Heretic optimized for macOS (Apple Silicon) with checkpoint system and LM Studio integration.**
 
+Developed by **Christopher Bradford** ([@sunkencity999](https://github.com/sunkencity999))
+
 Blasphemer removes censorship from transformer-based language models without expensive post-training, featuring automatic checkpoint/resume capabilities and streamlined GGUF conversion for LM Studio.
 
 ## What Makes Blasphemer Different
@@ -43,6 +45,29 @@ Blasphemer maintains full compatibility with Heretic's core functionality while 
 ## Quick Start
 
 ### Installation
+
+#### Automated Install (Recommended)
+
+```bash
+# Download and run the install script
+curl -fsSL https://raw.githubusercontent.com/sunkencity999/blasphemer/master/install-macos.sh | bash
+```
+
+Or download and run manually:
+
+```bash
+curl -O https://raw.githubusercontent.com/sunkencity999/blasphemer/master/install-macos.sh
+chmod +x install-macos.sh
+./install-macos.sh
+```
+
+**Features:**
+- Checks all prerequisites automatically
+- Verbose output with progress tracking
+- Can resume if interrupted
+- Handles errors gracefully
+
+#### Manual Install
 
 ```bash
 # Clone with submodules

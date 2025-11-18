@@ -51,6 +51,7 @@ def run():
         "[cyan]▀▀░░▀▀▀░▀░▀░▀▀▀░▀░░░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀[/]  [blue underline]https://github.com/sunkencity999/blasphemer[/]"
     )
     print()
+    print("[dim]Developed by Christopher Bradford (@sunkencity999)[/]")
     print("[dim]Enhanced fork of Heretic - optimized for macOS (Apple Silicon)[/]")
     print()
 
