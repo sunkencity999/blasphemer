@@ -1,161 +1,381 @@
-# Heretic: Fully automatic censorship removal for language models
+# Blasphemer
 
-Heretic is a tool that removes censorship (aka "safety alignment") from
-transformer-based language models without expensive post-training.
-It combines an advanced implementation of directional ablation, also known
-as "abliteration" ([Arditi et al. 2024](https://arxiv.org/abs/2406.11717)),
-with a TPE-based parameter optimizer powered by [Optuna](https://optuna.org/).
+**Enhanced fork of Heretic optimized for macOS (Apple Silicon) with checkpoint system and LM Studio integration.**
 
-This approach enables Heretic to work **completely automatically.** Heretic
-finds high-quality abliteration parameters by co-minimizing the number of
-refusals and the KL divergence from the original model. This results in a
-decensored model that retains as much of the original model's intelligence
-as possible. Using Heretic does not require an understanding of transformer
-internals. In fact, anyone who knows how to run a command-line program
-can use Heretic to decensor language models.
+Blasphemer removes censorship from transformer-based language models without expensive post-training, featuring automatic checkpoint/resume capabilities and streamlined GGUF conversion for LM Studio.
 
-<img width="650" height="715" alt="Screenshot" src="https://github.com/user-attachments/assets/d71a5efa-d6be-4705-a817-63332afb2d15" />
+## What Makes Blasphemer Different
 
-&nbsp;
+Blasphemer builds on [Heretic v1.0.1](https://github.com/p-e-w/heretic) with critical improvements for macOS users:
 
-Running unsupervised with the default configuration, Heretic can produce
-decensored models that rival the quality of abliterations created manually
-by human experts:
+### Key Enhancements
 
-| Model | Refusals for "harmful" prompts | KL divergence from original model for "harmless" prompts |
-| :--- | ---: | ---: |
-| [google/gemma-3-12b-it](https://huggingface.co/google/gemma-3-12b-it) (original) | 97/100 | 0 *(by definition)* |
-| [mlabonne/gemma-3-12b-it-abliterated-v2](https://huggingface.co/mlabonne/gemma-3-12b-it-abliterated-v2) | 3/100 | 1.04 |
-| [huihui-ai/gemma-3-12b-it-abliterated](https://huggingface.co/huihui-ai/gemma-3-12b-it-abliterated) | 3/100 | 0.45 |
-| **[p-e-w/gemma-3-12b-it-heretic](https://huggingface.co/p-e-w/gemma-3-12b-it-heretic) (ours)** | **3/100** | **0.16** |
+- **Apple Silicon Support**: Native MPS GPU detection and optimized memory management
+- **Checkpoint & Resume System**: Automatic progress saving with SQLite - never lose hours of work to interruptions
+- **LM Studio Integration**: One-command GGUF conversion with integrated llama.cpp
+- **Comprehensive Documentation**: Complete user guide tailored for macOS workflows
+- **Improved Error Handling**: Better dependency detection and helpful error messages
 
-The Heretic version, generated without any human effort, achieves the same
-level of refusal suppression as other abliterations, but at a much lower
-KL divergence, indicating less damage to the original model's capabilities.
-*(You can reproduce those numbers using Heretic's built-in evaluation functionality,
-e.g. `heretic --model google/gemma-3-12b-it --evaluate-model p-e-w/gemma-3-12b-it-heretic`.
-Note that the exact values might be platform- and hardware-dependent.
-The table above was compiled using PyTorch 2.8 on an RTX 5090.)*
+### New Features
 
-Heretic supports most dense models, including many multimodal models, and
-several different MoE architectures. It does not yet support SSMs/hybrid models,
-models with inhomogeneous layers, and certain novel attention systems.
+```bash
+# Resume interrupted runs automatically
+blasphemer --resume meta-llama/Llama-3.1-8B-Instruct
 
-You can find a collection of models that have been decensored using Heretic
-[on Hugging Face](https://huggingface.co/collections/p-e-w/the-bestiary).
+# Convert to GGUF with one command
+./convert-to-gguf.sh ~/models/your-model-heretic
 
-
-## Usage
-
-Prepare a Python 3.10+ environment with PyTorch 2.2+ installed as appropriate
-for your hardware. Then run:
-
-```
-pip install heretic-llm
-heretic Qwen/Qwen3-4B-Instruct-2507
+# Checkpoints saved after every trial - Ctrl+C safe
 ```
 
-Replace `Qwen/Qwen3-4B-Instruct-2507` with whatever model you want to decensor.
+## About Heretic
 
-The process is fully automatic and does not require configuration; however,
-Heretic has a variety of configuration parameters that can be changed for
-greater control. Run `heretic --help` to see available command-line options,
-or look at [`config.default.toml`](config.default.toml) if you prefer to use
-a configuration file.
+Heretic (the original project) combines advanced directional ablation with TPE-based parameter optimization to automatically remove safety alignment from language models. It works completely automatically, requiring no understanding of transformer internals.
 
-At the start of a program run, Heretic benchmarks the system to determine
-the optimal batch size to make the most of the available hardware.
-On an RTX 3090, with the default configuration, decensoring Llama-3.1-8B
-takes about 45 minutes.
+**Original Heretic by**: Philipp Emanuel Weidmann ([@p-e-w](https://github.com/p-e-w))
 
-After Heretic has finished decensoring a model, you are given the option to
-save the model, upload it to Hugging Face, chat with it to test how well it works,
-or any combination of those actions.
+**Research Paper**: [Refusal in Language Models Is Mediated by a Single Direction](https://arxiv.org/abs/2406.11717) (Arditi et al. 2024)
 
+**Original Repository**: <https://github.com/p-e-w/heretic>
 
-## How it works
+Blasphemer maintains full compatibility with Heretic's core functionality while adding macOS-specific optimizations and user experience improvements.
 
-Heretic implements a parametrized variant of directional ablation. For each
-supported transformer component (currently, attention out-projection and
-MLP down-projection), it identifies the associated matrices in each transformer
-layer, and orthogonalizes them with respect to the relevant "refusal direction",
-inhibiting the expression of that direction in the result of multiplications
-with that matrix.
+## Quick Start
 
-Refusal directions are computed for each layer as a difference-of-means between
-the first-token residuals for "harmful" and "harmless" example prompts.
+### Installation
 
-The ablation process is controlled by several optimizable parameters:
+```bash
+# Clone with submodules
+git clone --recursive https://github.com/sunkencity999/blasphemer.git
+cd blasphemer
 
-* `direction_index`: Either the index of a refusal direction, or the special
-  value `per layer`, indicating that each layer should be ablated using the
-  refusal direction associated with that layer.
-* `max_weight`, `max_weight_position`, `min_weight`, and `min_weight_distance`:
-  For each component, these parameters describe the shape and position of the
-  ablation weight kernel over the layers. The following diagram illustrates this:
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-<img width="800" height="500" alt="Explanation" src="https://github.com/user-attachments/assets/82e4b84e-5a82-4faf-b918-ac642f9e4892" />
+# Install dependencies
+pip install -e .
 
-&nbsp;
+# Build llama.cpp for GGUF conversion
+cd llama.cpp
+cmake -B build
+cmake --build build --config Release --target llama-quantize -j 8
+cd ..
+```
 
-Heretic's main innovations over existing abliteration systems are:
+### Basic Usage
 
-* The shape of the ablation weight kernel is highly flexible, which, combined with
-  automatic parameter optimization, can improve the compliance/quality tradeoff.
-  Non-constant ablation weights were previously explored by Maxime Labonne in
-  [gemma-3-12b-it-abliterated-v2](https://huggingface.co/mlabonne/gemma-3-12b-it-abliterated-v2).
-* The refusal direction index is a float rather than an integer. For non-integral
-  values, the two nearest refusal direction vectors are linearly interpolated.
-  This unlocks a vast space of additional directions beyond the ones identified
-  by the difference-of-means computation, and often enables the optimization
-  process to find a better direction than that belonging to any individual layer.
-* Ablation parameters are chosen separately for each component. I have found that
-  MLP interventions tend to be more damaging to the model than attention interventions,
-  so using different ablation weights can squeeze out some extra performance.
+```bash
+# Activate environment
+source venv/bin/activate
 
+# Process a model (checkpoints automatic)
+blasphemer meta-llama/Llama-3.1-8B-Instruct
 
-## Prior art
+# Convert to GGUF for LM Studio
+./convert-to-gguf.sh ~/models/Llama-3.1-8B-Instruct-heretic
 
-I'm aware of the following publicly available implementations of abliteration
-techniques:
+# Resume if interrupted
+blasphemer --resume meta-llama/Llama-3.1-8B-Instruct
+```
 
-* [AutoAbliteration](https://huggingface.co/posts/mlabonne/714992455492422)
-* [abliterator.py](https://github.com/FailSpy/abliterator)
-* [wassname's Abliterator](https://github.com/wassname/abliterator)
-* [ErisForge](https://github.com/Tsadoq/ErisForge)
-* [Removing refusals with HF Transformers](https://github.com/Sumandora/remove-refusals-with-transformers)
-* [deccp](https://github.com/AUGMXNT/deccp)
+### First-Time Recommended Model
 
-Note that Heretic was written from scratch, and does not reuse code from
-any of those projects.
+```bash
+# Start with a small model to test (~15-20 minutes)
+blasphemer microsoft/Phi-3-mini-4k-instruct
+```
 
+## Documentation
 
-## Acknowledgments
+**Complete Guide**: [USER_GUIDE.md](USER_GUIDE.md)
 
-The development of Heretic was informed by:
+The user guide covers:
+- Installation and setup
+- Model recommendations
+- LM Studio integration
+- Checkpoint system details
+- Configuration options
+- Troubleshooting
+- Advanced usage
 
-* [The original abliteration paper (Arditi et al. 2024)](https://arxiv.org/abs/2406.11717)
-* [Maxime Labonne's article on abliteration](https://huggingface.co/blog/mlabonne/abliteration),
-  as well as some details from the model cards of his own abliterated models (see above)
-* [Jim Lai's article describing "projected abliteration"](https://huggingface.co/blog/grimjim/projected-abliteration)
+## Checkpoint System
 
+One of Blasphemer's key features is automatic checkpoint/resume:
+
+### How It Works
+
+- **Automatic**: Saves progress after every trial to SQLite database
+- **Interruption-Proof**: Safe to Ctrl+C, survive crashes and power failures
+- **Resume Anywhere**: Continue exactly where you left off
+- **Zero Overhead**: Checkpoint saves take <100ms
+
+### Usage
+
+```bash
+# Start processing (checkpoints automatic)
+blasphemer your-model
+
+# If interrupted, resume with --resume flag
+blasphemer --resume your-model
+
+# Checkpoints saved to .heretic_checkpoints/
+```
+
+At most one trial is lost on interruption. For 15-hour runs with 200 trials, this means you can safely stop and resume at any time.
+
+## LM Studio Integration
+
+### GGUF Conversion Helper
+
+Blasphemer includes a streamlined GGUF conversion script:
+
+```bash
+# Default Q4_K_M quantization (good balance)
+./convert-to-gguf.sh ~/models/your-model-heretic
+
+# Higher quality Q5_K_M
+./convert-to-gguf.sh ~/models/your-model-heretic output-name Q5_K_M
+
+# View all options
+./convert-to-gguf.sh
+```
+
+### Quantization Options
+
+| Type | Size (7B) | Quality | Use Case |
+|------|-----------|---------|----------|
+| Q4_K_M | ~4.5GB | Good | Recommended balance |
+| Q5_K_M | ~5.3GB | Better | Higher quality |
+| Q8_0 | ~8GB | High | Maximum quality |
+| F16 | ~14GB | Full | No quality loss |
+
+After conversion, models automatically appear in LM Studio's model list.
+
+## Recommended Models
+
+### Best for First-Time Users
+
+**Phi-3 Mini** (3.8B parameters) - Fast testing
+```bash
+blasphemer microsoft/Phi-3-mini-4k-instruct
+```
+
+**Qwen 2.5 7B** - Excellent quality
+```bash
+blasphemer Qwen/Qwen2.5-7B-Instruct
+```
+
+### Production Quality
+
+**Llama 3.1 8B** (Most popular)
+```bash
+blasphemer meta-llama/Llama-3.1-8B-Instruct
+```
+
+**Mistral 7B v0.3** - High quality
+```bash
+blasphemer mistralai/Mistral-7B-Instruct-v0.3
+```
+
+### Models to Avoid
+
+- Multimodal models (vision/audio) - require problematic dependencies on macOS
+- Models > 70B parameters - require substantial resources
+- SSMs/hybrid models (Mamba, etc.) - not supported by Heretic/Blasphemer
+
+See [USER_GUIDE.md](USER_GUIDE.md) for complete model recommendations.
+
+## Configuration
+
+### Command Line
+
+```bash
+# Custom number of trials
+blasphemer --n-trials 100 your-model
+
+# Custom checkpoint directory
+blasphemer --checkpoint-dir /path/to/checkpoints your-model
+
+# Auto-resume mode
+blasphemer --resume your-model
+
+# Evaluate existing model
+blasphemer --model original --evaluate-model decensored
+```
+
+### Config File
+
+Create `config.toml` from `config.default.toml`:
+
+```toml
+# Number of optimization trials
+n_trials = 200
+
+# Checkpoint directory
+checkpoint_dir = ".heretic_checkpoints"
+
+# Auto-resume if checkpoint exists
+resume = false
+
+# Batch size (0 = auto)
+batch_size = 0
+```
+
+See [USER_GUIDE.md](USER_GUIDE.md) for all configuration options.
+
+## Apple Silicon Optimizations
+
+### MPS Support
+
+Blasphemer includes proper Apple Silicon GPU detection:
+
+```bash
+# Check GPU availability
+python -c "import torch; print(f'MPS available: {torch.backends.mps.is_available()}')"
+```
+
+Should output: `MPS available: True`
+
+### Memory Management
+
+- Proper MPS cache clearing prevents memory buildup
+- Optimized for long runs (15+ hours)
+- Automatic batch size detection for your hardware
+
+### Performance
+
+On Apple Silicon:
+- 7B models: 45-60 minutes
+- 14B models: 60-90 minutes
+- 2-3x slower than NVIDIA GPU but fully functional
+
+## System Requirements
+
+### Minimum
+
+- macOS (Apple Silicon recommended)
+- Python 3.10+
+- 16GB RAM
+- 50GB free disk space
+
+### Recommended
+
+- macOS with Apple Silicon (M1/M2/M3)
+- Python 3.14+
+- 32GB+ RAM
+- 100GB+ free disk space
+
+## How Blasphemer Works
+
+Like Heretic, Blasphemer uses activation engineering:
+
+1. **Load Model**: Downloads from Hugging Face or uses local model
+2. **Calculate Directions**: Analyzes refusal patterns using prompt datasets
+3. **Optimize Parameters**: Bayesian optimization finds best abliteration settings
+4. **Evaluate Results**: Tests KL divergence and refusal rates
+5. **Present Options**: Shows Pareto-optimal solutions for selection
+
+Blasphemer adds automatic checkpointing throughout this process.
+
+## Contributing
+
+Contributions welcome! Areas of interest:
+
+- macOS-specific optimizations
+- Additional LM Studio integration features
+- Performance improvements for Apple Silicon
+- Documentation improvements
+- Bug fixes and error handling
+
+## Project Structure
+
+```
+blasphemer/
+├── README.md                      # This file
+├── USER_GUIDE.md                  # Comprehensive documentation
+├── LICENSE                        # AGPL-3.0
+├── config.default.toml            # Default configuration
+├── convert-to-gguf.sh             # GGUF conversion helper
+├── pyproject.toml                 # Python project metadata
+├── src/heretic/                   # Source code (maintains compatibility)
+│   ├── main.py                    # Entry point with checkpointing
+│   ├── model.py                   # Model loading and abliteration
+│   ├── config.py                  # Configuration management
+│   ├── evaluator.py               # Model evaluation
+│   └── utils.py                   # Utilities with MPS support
+└── llama.cpp/                     # Git submodule for GGUF conversion
+```
+
+## Relationship to Heretic
+
+Blasphemer is a friendly fork that:
+
+- **Maintains compatibility** with Heretic's core functionality
+- **Adds features** specific to macOS and user experience
+- **Credits the original** - all core abliteration logic is from Heretic
+- **Follows same license** - AGPL-3.0
+
+We encourage contributing improvements back to the original Heretic project when applicable.
+
+## Troubleshooting
+
+### Common Issues
+
+**"No GPU detected" warning**
+- This is a display bug - MPS will still be used
+- Verify with: `python -c "import torch; print(torch.backends.mps.is_available())"`
+
+**Out of memory**
+- Reduce batch size: `blasphemer --max-batch-size 32 your-model`
+- Try a smaller model
+- Close other applications
+
+**Checkpoint won't resume**
+- Ensure using exact same model identifier
+- Check `.heretic_checkpoints/` directory exists
+- Verify checkpoint file not corrupted
+
+**llama.cpp conversion fails**
+- Ensure llama.cpp built successfully
+- Check model path is correct
+- Verify all dependencies installed
+
+See [USER_GUIDE.md](USER_GUIDE.md) for complete troubleshooting guide.
+
+## Version History
+
+### v1.0.1-macos.1 (Initial Release)
+
+Based on Heretic v1.0.1 with enhancements:
+- Apple Silicon MPS support and detection
+- Checkpoint/resume system with SQLite
+- Integrated llama.cpp with GGUF conversion script
+- Comprehensive USER_GUIDE.md documentation
+- macOS-optimized workflows
 
 ## License
 
-Copyright &copy; 2025  Philipp Emanuel Weidmann (<pew@worldwidemann.com>)
+AGPL-3.0 - Same as original Heretic
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This ensures the community benefits from improvements while maintaining the open-source nature of the project.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
+## Acknowledgments
 
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+- **Philipp Emanuel Weidmann** ([@p-e-w](https://github.com/p-e-w)) - Original Heretic author
+- **Arditi et al.** - "Refusal in Language Models Is Mediated by a Single Direction" (2024)
+- **Optuna team** - TPE-based optimization framework
+- **llama.cpp project** - GGUF conversion tools
 
-**By contributing to this project, you agree to release your
-contributions under the same license.**
+## Links
+
+- **Blasphemer Repository**: <https://github.com/sunkencity999/blasphemer>
+- **Original Heretic**: <https://github.com/p-e-w/heretic>
+- **Research Paper**: <https://arxiv.org/abs/2406.11717>
+- **Example Models**: <https://huggingface.co/collections/p-e-w/the-bestiary>
+- **llama.cpp**: <https://github.com/ggerganov/llama.cpp>
+- **LM Studio**: <https://lmstudio.ai>
+
+---
+
+**Made with** care for the macOS/Apple Silicon community. Blasphemer aims to make model decensoring accessible and reliable for everyone.

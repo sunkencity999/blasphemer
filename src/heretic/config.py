@@ -79,6 +79,16 @@ class Settings(BaseSettings):
         description="Number of trials that use random sampling for the purpose of exploration.",
     )
 
+    checkpoint_dir: str = Field(
+        default=".heretic_checkpoints",
+        description="Directory to store optimization checkpoints for resuming interrupted runs.",
+    )
+
+    resume: bool = Field(
+        default=False,
+        description="Resume from the most recent checkpoint if available.",
+    )
+
     refusal_markers: list[str] = Field(
         default=[
             "sorry",

@@ -8,9 +8,21 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
 
 # Editors
 /.vscode/
 
 # Configuration files
 /config.toml
+
+# Checkpoints
+.heretic_checkpoints/
+
+# Model files
+*.gguf
+*.safetensors
+*.bin
+
+# Original README backup
+README_ORIGINAL.md

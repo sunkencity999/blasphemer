@@ -1,14 +1,17 @@
 [project]
-name = "heretic-llm"
-version = "1.0.1"
-description = "Fully automatic censorship removal for language models"
+name = "blasphemer"
+version = "1.0.1.post1"
+description = "Enhanced fork of Heretic optimized for macOS (Apple Silicon) with checkpoint system and LM Studio integration"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 authors = [
     { name = "Philipp Emanuel Weidmann", email = "pew@worldwidemann.com" }
 ]
+maintainers = [
+    { name = "Christopher Bradford" }
+]
 requires-python = ">=3.10"
-keywords = ["llm", "transformer", "abliteration"]
+keywords = ["llm", "transformer", "abliteration", "macos", "apple-silicon", "lm-studio", "checkpoint"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -34,13 +37,15 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/p-e-w/heretic"
-Documentation = "https://github.com/p-e-w/heretic"
-Repository = "https://github.com/p-e-w/heretic.git"
-Issues = "https://github.com/p-e-w/heretic/issues"
-Changelog = "https://github.com/p-e-w/heretic/commits/master/"
+Homepage = "https://github.com/sunkencity999/blasphemer"
+Documentation = "https://github.com/sunkencity999/blasphemer/blob/main/USER_GUIDE.md"
+Repository = "https://github.com/sunkencity999/blasphemer.git"
+Issues = "https://github.com/sunkencity999/blasphemer/issues"
+Changelog = "https://github.com/sunkencity999/blasphemer/commits/main/"
+"Original Heretic" = "https://github.com/p-e-w/heretic"
 
 [project.scripts]
+blasphemer = "heretic.main:main"
 heretic = "heretic.main:main"
 
 [build-system]

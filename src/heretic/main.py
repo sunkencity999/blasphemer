@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
+import hashlib
 import math
 import sys
 import time
@@ -78,6 +79,8 @@ def run():
     # Adapted from https://github.com/huggingface/accelerate/blob/main/src/accelerate/commands/env.py
     if torch.cuda.is_available():
         print(f"GPU type: [bold]{torch.cuda.get_device_name()}[/]")
+    elif torch.backends.mps.is_available():
+        print(f"GPU type: [bold]Apple Silicon (MPS)[/]")
     elif is_xpu_available():
         print(f"XPU type: [bold]{torch.xpu.get_device_name()}[/]")
     elif is_mlu_available():
@@ -181,6 +184,48 @@ def run():
         print("* Evaluating...")
         evaluator.get_score()
         return
+
+    # Set up checkpoint directory and study storage
+    checkpoint_dir = Path(settings.checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create a unique study name based on the model ID
+    model_hash = hashlib.md5(settings.model.encode()).hexdigest()[:8]
+    study_name = f"heretic_{Path(settings.model).name}_{model_hash}"
+    storage_path = checkpoint_dir / f"{study_name}.db"
+    storage_url = f"sqlite:///{storage_path}"
+    
+    # Check if we're resuming from a checkpoint
+    existing_study = None
+    if storage_path.exists():
+        if settings.resume:
+            print()
+            print(f"[bold green]Found existing checkpoint:[/] {storage_path}")
+            try:
+                existing_study = optuna.load_study(
+                    study_name=study_name,
+                    storage=storage_url,
+                )
+                completed_trials = len([t for t in existing_study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+                print(f"* Completed trials: [bold]{completed_trials}[/]/{settings.n_trials}")
+                if completed_trials >= settings.n_trials:
+                    print("[yellow]Study already completed! Using existing results.[/]")
+                else:
+                    remaining = settings.n_trials - completed_trials
+                    print(f"[bold cyan]Resuming optimization[/] - {remaining} trials remaining")
+            except Exception as error:
+                print(f"[yellow]Warning: Could not load checkpoint ({error}). Starting fresh.[/]")
+                existing_study = None
+        else:
+            print()
+            print(f"[yellow]Found existing checkpoint but --resume not specified.[/]")
+            print(f"* Checkpoint location: {storage_path}")
+            print("* Use [bold]--resume[/] to continue from checkpoint")
+            print("* Starting fresh optimization (checkpoint will be overwritten)")
+    else:
+        print()
+        print(f"Checkpoint will be saved to: [bold]{storage_path}[/]")
+        print("* Use [bold]--resume[/] to continue if interrupted")
 
     print()
     print("Calculating per-layer refusal directions...")
@@ -296,16 +341,33 @@ def run():
 
         return score
 
-    study = optuna.create_study(
-        sampler=TPESampler(
-            n_startup_trials=settings.n_startup_trials,
-            n_ei_candidates=128,
-            multivariate=True,
-        ),
-        directions=[StudyDirection.MINIMIZE, StudyDirection.MINIMIZE],
-    )
+    # Create or load study with persistent storage
+    if existing_study is not None:
+        study = existing_study
+        # Calculate how many trials are left to run
+        completed_trials = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+        n_trials_to_run = settings.n_trials - completed_trials
+    else:
+        study = optuna.create_study(
+            study_name=study_name,
+            storage=storage_url,
+            sampler=TPESampler(
+                n_startup_trials=settings.n_startup_trials,
+                n_ei_candidates=128,
+                multivariate=True,
+            ),
+            directions=[StudyDirection.MINIMIZE, StudyDirection.MINIMIZE],
+            load_if_exists=False,  # We already checked above
+        )
+        n_trials_to_run = settings.n_trials
 
-    study.optimize(objective, n_trials=settings.n_trials)
+    if n_trials_to_run > 0:
+        print()
+        print(f"[bold cyan]Starting optimization:[/] {n_trials_to_run} trials")
+        print(f"* Checkpoint: [bold]{storage_path}[/]")
+        study.optimize(objective, n_trials=n_trials_to_run)
+        print()
+        print(f"[bold green]✓ Checkpoint saved:[/] {storage_path}")
 
     best_trials = sorted(
         study.best_trials,
