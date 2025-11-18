@@ -131,7 +131,12 @@ class TestTrialFormatting:
         settings = Settings(model="test-org/test-model")
         trial = Mock()
         trial.params = {"param1": 0.5}
-        trial.user_attrs = {"direction_index": 1}
+        trial.user_attrs = {
+            "direction_index": 1,
+            "parameters": {},  # Empty dict for parameters
+            "kl_divergence": 0.5,
+            "refusals": 2
+        }
         
         readme = get_readme_intro(settings, trial, base_refusals=10, bad_prompts=["prompt1", "prompt2"])
         
@@ -151,7 +156,12 @@ class TestTrialFormatting:
         settings = Settings(model="meta-llama/Llama-3-8B")
         trial = Mock()
         trial.params = {}
-        trial.user_attrs = {"direction_index": 0}
+        trial.user_attrs = {
+            "direction_index": 0,
+            "parameters": {},  # Empty dict for parameters
+            "kl_divergence": 0.3,
+            "refusals": 1
+        }
         
         readme = get_readme_intro(settings, trial, base_refusals=5, bad_prompts=["test"])
         
