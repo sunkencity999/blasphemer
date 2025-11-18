@@ -32,7 +32,7 @@ class TestSettings:
         """Test that checkpoint directory uses blasphemer naming."""
         settings = Settings(model="test-model")
         assert "blasphemer" in settings.checkpoint_dir
-        assert not settings.checkpoint_dir.startswith(".")  # Should be relative path
+        assert settings.checkpoint_dir == ".blasphemer_checkpoints"
     
     def test_resume_flag_default(self):
         """Test that resume flag defaults to False."""

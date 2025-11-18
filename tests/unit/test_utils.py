@@ -6,6 +6,14 @@ import pytest
 import torch
 from heretic.utils import format_duration, batchify, empty_cache
 
+# Disable CLI parsing for all tests in this module
+@pytest.fixture(autouse=True)
+def disable_cli_parsing(monkeypatch):
+    """Disable command-line argument parsing in Settings for tests."""
+    # Mock sys.argv to prevent CLI parsing conflicts
+    import sys
+    monkeypatch.setattr(sys, 'argv', ['pytest'])
+
 
 class TestFormatDuration:
     """Test the format_duration utility function."""
@@ -23,11 +31,10 @@ class TestFormatDuration:
     
     def test_hours_minutes_seconds(self):
         """Test formatting durations with hours."""
-        # Hours may omit trailing zeros
-        result = format_duration(3600)
-        assert "1h" in result
-        assert format_duration(3665) == "1h 1m 5s"
-        assert format_duration(7325) == "2h 2m 5s"
+        # When hours are present, seconds are omitted
+        assert format_duration(3600) == "1h 0m"
+        assert format_duration(3665) == "1h 1m"  # 1h 1m 5s -> 1h 1m (seconds omitted)
+        assert format_duration(7325) == "2h 2m"  # 2h 2m 5s -> 2h 2m (seconds omitted)
     
     def test_zero_duration(self):
         """Test formatting zero duration."""
@@ -117,8 +124,16 @@ class TestTrialFormatting:
     def test_get_readme_intro(self):
         """Test README introduction generation."""
         from heretic.utils import get_readme_intro
+        from heretic.config import Settings
+        from unittest.mock import Mock
         
-        readme = get_readme_intro("test-org/test-model")
+        # Create mock objects
+        settings = Settings(model="test-org/test-model")
+        trial = Mock()
+        trial.params = {"param1": 0.5}
+        trial.user_attrs = {"direction_index": 1}
+        
+        readme = get_readme_intro(settings, trial, base_refusals=10, bad_prompts=["prompt1", "prompt2"])
         
         assert "test-org/test-model" in readme
         assert "Blasphemer" in readme
@@ -129,8 +144,16 @@ class TestTrialFormatting:
     def test_readme_has_proper_links(self):
         """Test that generated README has proper markdown links."""
         from heretic.utils import get_readme_intro
+        from heretic.config import Settings
+        from unittest.mock import Mock
         
-        readme = get_readme_intro("meta-llama/Llama-3-8B")
+        # Create mock objects
+        settings = Settings(model="meta-llama/Llama-3-8B")
+        trial = Mock()
+        trial.params = {}
+        trial.user_attrs = {"direction_index": 0}
+        
+        readme = get_readme_intro(settings, trial, base_refusals=5, bad_prompts=["test"])
         
         # Check for markdown link format
         assert "[Blasphemer]" in readme
