@@ -46,7 +46,26 @@ Blasphemer maintains full compatibility with Heretic's core functionality while 
 
 ### Installation
 
-#### Automated Install (Recommended)
+#### Homebrew (Easiest)
+
+```bash
+# Add the tap and install
+brew tap sunkencity999/blasphemer
+brew install blasphemer
+
+# Start using immediately
+blasphemer.sh
+```
+
+**Benefits:**
+- One command installation
+- Automatic dependency management
+- Easy updates with `brew upgrade`
+- Clean uninstall with `brew uninstall`
+
+See [HOMEBREW.md](HOMEBREW.md) for detailed Homebrew documentation.
+
+#### Automated Install Script
 
 ```bash
 # Download and run the install script
