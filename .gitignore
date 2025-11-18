@@ -27,3 +27,13 @@ venv/
 
 # Original README backup
 README_ORIGINAL.md
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+*.pyc
+__pycache__/
+
+# Test backups
+*.backup
