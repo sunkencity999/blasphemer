@@ -9,6 +9,14 @@ import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+# Disable CLI parsing for all tests in this module
+@pytest.fixture(autouse=True)
+def disable_cli_parsing(monkeypatch):
+    """Disable command-line argument parsing in Settings for tests."""
+    # Mock sys.argv to prevent CLI parsing conflicts
+    import sys
+    monkeypatch.setattr(sys, 'argv', ['pytest'])
+
 
 class TestCheckpointSystem:
     """Test the checkpoint and resume functionality."""
