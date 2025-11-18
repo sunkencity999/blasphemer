@@ -37,3 +37,6 @@ __pycache__/
 
 # Test backups
 *.backup
+
+# Install script state
+.blasphemer_install_state
