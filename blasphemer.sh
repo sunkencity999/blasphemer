@@ -83,7 +83,7 @@ read_choice() {
     local choice
     
     while true; do
-        printf "\n"
+        printf "\n" >&2
         read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") " choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_option" ]; then
@@ -110,7 +110,10 @@ read_yes_no() {
             answer=${answer:-n}
         fi
         
-        case "${answer,,}" in
+        # Convert to lowercase using tr (more portable than ${var,,})
+        answer=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        
+        case "$answer" in
             y|yes) printf "y"; return 0 ;;
             n|no) printf "n"; return 0 ;;
             *) print_error "Please answer 'y' or 'n'" ;;
