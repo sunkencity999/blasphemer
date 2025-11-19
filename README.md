@@ -155,7 +155,10 @@ blasphemer microsoft/Phi-3-mini-4k-instruct
 
 ## Documentation
 
-**Complete Guide**: [USER_GUIDE.md](USER_GUIDE.md)
+**Complete User Guide**: [USER_GUIDE.md](USER_GUIDE.md)
+**Deep Learning Guide**: [LEARN.md](LEARN.md) ⭐ **NEW!**
+
+### USER_GUIDE.md - Practical Usage
 
 The user guide covers:
 - Installation and setup
@@ -166,6 +169,20 @@ The user guide covers:
 - Troubleshooting
 - Advanced usage
 - Testing and development
+
+### LEARN.md - Complete Education
+
+**From beginner to expert** - Understand abliteration deeply:
+- Philosophy & intellectual freedom
+- Why models refuse (the neural mechanism)
+- How abliteration works (mathematics & implementation)
+- Parameter optimization (Bayesian methods)
+- Code architecture deep dive
+- Practical examples & troubleshooting
+- Ethics & responsibility
+- Research foundations
+
+**Perfect for**: Anyone who wants to truly understand what they're doing, not just run commands
 
 ## Testing
 
