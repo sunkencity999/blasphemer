@@ -206,12 +206,12 @@ setup_environment() {
 show_recommended_models() {
     print_header "Recommended Models"
     
-    printf "%bQuick Testing (15-20 minutes):%b\n" "${BOLD}" "${NC}"
-    printf "  • microsoft/Phi-3-mini-4k-instruct (3.8B)\n"
-    printf "  • microsoft/Phi-3-mini-128k-instruct (3.8B)\n"
+    printf "%b⭐ Highly Recommended (Best Success Rate):%b\n" "${BOLD}" "${NC}"
+    printf "  • meta-llama/Llama-3.1-8B-Instruct (8B) - BEST CHOICE\n"
+    printf "  • mistralai/Mistral-7B-Instruct-v0.3 (7B)\n"
+    printf "  • Qwen/Qwen2.5-7B-Instruct (7B)\n"
     printf "\n"
-    printf "%bGood Quality (30-60 minutes):%b\n" "${BOLD}" "${NC}"
-    printf "  • Qwen/Qwen2.5-7B-Instruct\n"
+    printf "%bGood Quality (60-90 minutes):%b\n" "${BOLD}" "${NC}"
     printf "  • meta-llama/Llama-3.1-8B-Instruct\n"
     printf "  • mistralai/Mistral-7B-Instruct-v0.3\n"
     printf "\n"
@@ -239,23 +239,21 @@ select_model() {
             echo "" >&2
             echo "Select a recommended model:" >&2
             echo "" >&2
-            print_option "1" "microsoft/Phi-3-mini-4k-instruct ${DIM}(3.8B - Fast, good for testing)${NC}" >&2
-            print_option "2" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
-            print_option "3" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - Most popular)${NC}" >&2
-            print_option "4" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High quality)${NC}" >&2
-            print_option "5" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
-            print_option "6" "Enter custom model" >&2
+            print_option "1" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - BEST CHOICE ⭐)${NC}" >&2
+            print_option "2" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High success rate)${NC}" >&2
+            print_option "3" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
+            print_option "4" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
+            print_option "5" "Enter custom model" >&2
             echo "" >&2
             
-            local model_choice=$(read_choice "Enter your choice (1-6):" 6)
+            local model_choice=$(read_choice "Enter your choice (1-5):" 5)
             
             case $model_choice in
-                1) printf "microsoft/Phi-3-mini-4k-instruct" ;;
-                2) printf "Qwen/Qwen2.5-7B-Instruct" ;;
-                3) printf "meta-llama/Llama-3.1-8B-Instruct" ;;
-                4) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
-                5) printf "Qwen/Qwen2.5-14B-Instruct" ;;
-                6) read_text "Enter model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
+                1) printf "meta-llama/Llama-3.1-8B-Instruct" ;;
+                2) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
+                3) printf "Qwen/Qwen2.5-7B-Instruct" ;;
+                4) printf "Qwen/Qwen2.5-14B-Instruct" ;;
+                5) read_text "Enter model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
             esac
             ;;
         2)
@@ -620,10 +618,10 @@ show_help() {
     echo "Common tasks:"
     echo ""
     echo "  ${DIM}Process a model:${NC}"
-    echo "    blasphemer microsoft/Phi-3-mini-4k-instruct"
+    echo "    blasphemer meta-llama/Llama-3.1-8B-Instruct"
     echo ""
     echo "  ${DIM}Resume interrupted run:${NC}"
-    echo "    blasphemer --resume microsoft/Phi-3-mini-4k-instruct"
+    echo "    blasphemer --resume meta-llama/Llama-3.1-8B-Instruct"
     echo ""
     echo "  ${DIM}Convert to GGUF:${NC}"
     echo "    ./convert-to-gguf.sh ~/models/model-name"
