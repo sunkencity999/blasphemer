@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# Error handler
+trap 'echo "Error on line $LINENO. Exit code: $?" >&2' ERR
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -147,14 +150,26 @@ setup_environment() {
             print_success "Virtual environment created"
         else
             print_error "Failed to create virtual environment"
+            print_error "Please run: python3 -m venv venv"
             exit 1
         fi
     fi
     
     # Activate virtual environment
     print_info "Activating virtual environment..."
-    source "$VENV_DIR/bin/activate"
-    print_success "Environment activated"
+    if [[ -f "$VENV_DIR/bin/activate" ]]; then
+        # Use set +euo pipefail temporarily for source
+        set +u
+        source "$VENV_DIR/bin/activate" || {
+            print_error "Failed to activate virtual environment"
+            exit 1
+        }
+        set -u
+        print_success "Environment activated"
+    else
+        print_error "Virtual environment activation script not found"
+        exit 1
+    fi
     
     # Check if blasphemer is installed
     if ! command -v blasphemer &> /dev/null; then
@@ -165,11 +180,12 @@ setup_environment() {
             print_success "Blasphemer installed"
         else
             print_error "Failed to install Blasphemer"
+            print_error "Please run: pip install -e ."
             exit 1
         fi
     fi
     
-    # Check MPS availability
+    # Check MPS availability (non-fatal)
     print_info "Checking GPU availability..."
     if python3 -c "import torch; exit(0 if torch.backends.mps.is_available() else 1)" 2>/dev/null; then
         print_success "Apple Silicon MPS GPU detected"
@@ -177,7 +193,7 @@ setup_environment() {
         print_warning "MPS not available - will use CPU (slower)"
     fi
     
-    echo ""
+    printf "\n"
 }
 
 ################################################################################
