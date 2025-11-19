@@ -6,6 +6,7 @@ import math
 import sys
 import time
 import warnings
+from dataclasses import asdict
 from importlib.metadata import version
 from pathlib import Path
 
@@ -312,7 +313,8 @@ def run():
             )
 
         trial.set_user_attr("direction_index", direction_index)
-        trial.set_user_attr("parameters", parameters)
+        # Convert AbliterationParameters objects to dicts for JSON serialization
+        trial.set_user_attr("parameters", {k: asdict(v) for k, v in parameters.items()})
 
         print()
         print(

@@ -2,7 +2,6 @@
 # Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
 import gc
-from dataclasses import asdict
 from importlib.metadata import version
 from typing import TypeVar
 
@@ -73,7 +72,8 @@ def get_trial_parameters(trial: Trial) -> dict[str, str]:
     )
 
     for component, parameters in trial.user_attrs["parameters"].items():
-        for name, value in asdict(parameters).items():
+        # parameters is already a dict (stored as dict in DB for JSON serialization)
+        for name, value in parameters.items():
             params[f"{component}.{name}"] = f"{value:.2f}"
 
     return params
