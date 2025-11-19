@@ -87,7 +87,7 @@ read_choice() {
         read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") " choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_option" ]; then
-            echo "$choice"
+            printf "%s" "$choice"
             return 0
         else
             print_error "Invalid choice. Please enter a number between 1 and $max_option"
@@ -111,8 +111,8 @@ read_yes_no() {
         fi
         
         case "${answer,,}" in
-            y|yes) echo "y"; return 0 ;;
-            n|no) echo "n"; return 0 ;;
+            y|yes) printf "y"; return 0 ;;
+            n|no) printf "n"; return 0 ;;
             *) print_error "Please answer 'y' or 'n'" ;;
         esac
     done
@@ -131,7 +131,7 @@ read_text() {
         read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}"): " text
     fi
     
-    echo "$text"
+    printf "%s" "$text"
 }
 
 ################################################################################
@@ -247,11 +247,11 @@ select_model() {
             local model_choice=$(read_choice "Enter your choice (1-6):" 6)
             
             case $model_choice in
-                1) echo "microsoft/Phi-3-mini-4k-instruct" ;;
-                2) echo "Qwen/Qwen2.5-7B-Instruct" ;;
-                3) echo "meta-llama/Llama-3.1-8B-Instruct" ;;
-                4) echo "mistralai/Mistral-7B-Instruct-v0.3" ;;
-                5) echo "Qwen/Qwen2.5-14B-Instruct" ;;
+                1) printf "microsoft/Phi-3-mini-4k-instruct" ;;
+                2) printf "Qwen/Qwen2.5-7B-Instruct" ;;
+                3) printf "meta-llama/Llama-3.1-8B-Instruct" ;;
+                4) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
+                5) printf "Qwen/Qwen2.5-14B-Instruct" ;;
                 6) read_text "Enter model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
             esac
             ;;
@@ -290,13 +290,13 @@ select_save_location() {
     
     case $choice in
         1)
-            echo "$DEFAULT_MODEL_DIR/$model_basename-blasphemer"
+            printf "%s" "$DEFAULT_MODEL_DIR/$model_basename-blasphemer"
             ;;
         2)
             local custom_path=$(read_text "Enter full path for model" "$HOME/")
             # Expand tilde
             custom_path="${custom_path/#\~/$HOME}"
-            echo "$custom_path"
+            printf "%s" "$custom_path"
             ;;
     esac
 }
@@ -322,11 +322,11 @@ select_quantization() {
     local choice=$(read_choice "Enter your choice (1-5):" 5)
     
     case $choice in
-        1) echo "Q4_K_M" ;;
-        2) echo "Q5_K_M" ;;
-        3) echo "Q8_0" ;;
-        4) echo "F16" ;;
-        5) echo "SKIP" ;;
+        1) printf "Q4_K_M" ;;
+        2) printf "Q5_K_M" ;;
+        3) printf "Q8_0" ;;
+        4) printf "F16" ;;
+        5) printf "SKIP" ;;
     esac
 }
 
@@ -345,9 +345,9 @@ configure_advanced_options() {
     local use_default=$(read_yes_no "Use default settings? (200 trials, auto batch size)" "y")
     
     if [[ "$use_default" == "y" ]]; then
-        echo "200"  # default trials
-        echo "0"    # auto batch size
-        echo "n"    # no resume
+        printf "200\n"  # default trials
+        printf "0\n"    # auto batch size
+        printf "n"    # no resume
         return 0
     fi
     
@@ -360,9 +360,9 @@ configure_advanced_options() {
     echo "" >&2
     local resume=$(read_yes_no "Resume from existing checkpoint if available?" "n")
     
-    echo "$n_trials"
-    echo "$batch_size"
-    echo "$resume"
+    printf "%s\n" "$n_trials"
+    printf "%s\n" "$batch_size"
+    printf "%s" "$resume"
 }
 
 ################################################################################
@@ -383,7 +383,7 @@ select_operation() {
     echo "" >&2
     
     local choice=$(read_choice "Enter your choice (1-6):" 6)
-    echo "$choice"
+    printf "%s" "$choice"
 }
 
 ################################################################################
