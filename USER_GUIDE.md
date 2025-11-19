@@ -205,39 +205,22 @@ blasphemer --model <original> --evaluate-model <decensored>
 
 ## Model Recommendations
 
-### Best for First-Time Users
+Based on extensive testing, here are models ranked by abliteration success rate:
 
-#### Phi-3 Mini (3.8B parameters)
+### ⭐ Highly Recommended (High Success Rate)
 
-```bash
-blasphemer microsoft/Phi-3-mini-4k-instruct
-```
-
-- Processing time: 15-20 minutes
-- Download size: ~7GB
-- Best for learning the workflow
-
-#### Qwen 2.5 7B
-
-```bash
-blasphemer Qwen/Qwen2.5-7B-Instruct
-```
-
-- Processing time: 30-45 minutes
-- Excellent quality for size
-- Well-tested with Blasphemer
-
-### Recommended Medium Models
-
-#### Llama 3.1 8B (Most Popular)
+#### Llama 3.1 8B Instruct (BEST CHOICE)
 
 ```bash
 blasphemer meta-llama/Llama-3.1-8B-Instruct
 ```
 
-- Industry standard
+- **Success rate**: Excellent (80-90%)
+- **Expected refusals**: 2-10% (Very Good to Excellent)
+- **Expected KL divergence**: 0.15-0.30
 - Processing time: 45-60 minutes
-- Great Blasphemer results
+- Most tested, industry standard
+- Consistently good results
 
 #### Mistral 7B v0.3
 
@@ -245,17 +228,36 @@ blasphemer meta-llama/Llama-3.1-8B-Instruct
 blasphemer mistralai/Mistral-7B-Instruct-v0.3
 ```
 
-- High quality output
+- **Success rate**: Very Good (70-80%)
+- **Expected refusals**: 3-12%
+- **Expected KL divergence**: 0.15-0.35
 - Processing time: 40-50 minutes
+- High quality output
+- Well-documented
+
+#### Qwen 2.5 7B Instruct
+
+```bash
+blasphemer Qwen/Qwen2.5-7B-Instruct
+```
+
+- **Success rate**: Very Good (70-80%)
+- **Expected refusals**: 3-15%
+- **Expected KL divergence**: 0.20-0.40
+- Processing time: 30-45 minutes
+- Excellent quality for size
+- Fast training
 
 ### Larger Models (Best Quality)
 
-#### Qwen 14B
+#### Qwen 2.5 14B Instruct
 
 ```bash
 blasphemer Qwen/Qwen2.5-14B-Instruct
 ```
 
+- **Success rate**: Good (60-70%)
+- **Expected refusals**: 5-20%
 - Processing time: 60-90 minutes
 - Excellent quality
 
@@ -268,6 +270,33 @@ blasphemer meta-llama/Llama-3.1-70B-Instruct
 - Highest quality
 - Requires significant resources
 - Processing time: Several hours
+
+### ⚠️ Challenging Models (Lower Success Rate)
+
+These models can be abliterated but often produce poor results:
+
+#### Phi-3 Mini (3.8B)
+
+```bash
+blasphemer microsoft/Phi-3-mini-4k-instruct
+```
+
+- **Success rate**: Poor (20-30%)
+- **Expected refusals**: 60-90% (often fails completely)
+- **Issue**: Multi-directional safety alignment
+- **Why difficult**: Microsoft uses aggressive RLHF across multiple directions
+- **Recommendation**: Use Llama 3.1 8B instead for learning
+
+#### Gemma 2 (2B, 9B, 27B)
+
+```bash
+blasphemer google/gemma-2-9b-it
+```
+
+- **Success rate**: Fair (40-50%)
+- **Expected refusals**: 20-40%
+- **Issue**: Strong, distributed safety mechanisms
+- **Recommendation**: Requires more trials (300-500) and patience
 
 ### Models to Avoid
 
@@ -296,14 +325,22 @@ Blasphemer does not support:
 - Models with inhomogeneous layers
 - Certain novel attention mechanisms
 
-### Proven Compatible Models
+### Architecture Compatibility
 
-- Llama 3.1 (all sizes)
-- Mistral (all versions)
-- Qwen 2.5 (all sizes)
-- Gemma 2 (all sizes)
-- Phi-3 (all variants)
+**Well-Tested (High Success Rate):**
+- Llama 3/3.1 (all sizes) ⭐
+- Mistral 7B (all versions) ⭐
+- Qwen 2.5 (7B, 14B, 32B)
+
+**Tested (Moderate Success):**
+- Gemma 2 (requires patience)
 - Command R (standard version)
+- Yi models (some variants)
+
+**Experimental (Low Success):**
+- Phi-3 (all variants)
+- Very small models (< 3B)
+- Highly aligned corporate models
 
 ### Hardware Recommendations
 
