@@ -164,6 +164,80 @@ The user guide covers:
 - Configuration options
 - Troubleshooting
 - Advanced usage
+- Testing and development
+
+## Testing
+
+Blasphemer includes a comprehensive test suite to ensure reliability and prevent regressions.
+
+### Running Tests
+
+```bash
+# Activate environment
+source venv/bin/activate
+
+# Install pytest (if not already installed)
+pip install pytest
+
+# Run all tests
+pytest tests/ -v
+
+# Run specific test suites
+pytest tests/unit/test_serialization.py -v
+pytest tests/unit/test_utils.py -v
+pytest tests/integration/test_checkpoint_system.py -v
+
+# Run with coverage report
+pytest tests/ --cov=src/heretic --cov-report=html
+```
+
+### Test Coverage
+
+**Unit Tests** (`tests/unit/`):
+- **JSON Serialization** - Critical fix for AbliterationParameters storage
+- **Utility Functions** - format_duration, batchify, empty_cache
+- **README Generation** - Proper Blasphemer/Heretic attribution
+- **Configuration** - Environment variables, checkpoint directories
+
+**Integration Tests** (`tests/integration/`):
+- **Checkpoint System** - SQLite database creation and resume functionality
+- **Environment Variables** - BLASPHEMER_ prefix handling
+- **Model Naming** - Consistent branding across outputs
+
+**Shell Script Tests** (`tests/scripts/`):
+- **Script Validation** - Syntax checking, executability
+- **Branding Consistency** - Blasphemer references, no outdated Heretic refs
+- **Error Handling** - Proper error traps and exit codes
+- **Help Functionality** - All scripts provide usage information
+
+### What's Tested
+
+✅ **Critical Bug Fixes**:
+- JSON serialization of AbliterationParameters (prevents TypeError)
+- --resume flag format (requires boolean argument)
+- Bash 3.2 compatibility (macOS default shell)
+
+✅ **Core Functionality**:
+- Checkpoint creation and resumption
+- Trial parameter storage and retrieval
+- MPS (Apple Silicon) GPU detection
+- Memory cache management
+
+✅ **Shell Scripts**:
+- `blasphemer.sh` - Interactive launcher
+- `convert-to-gguf.sh` - GGUF conversion
+- `install-macos.sh` - Installation script
+
+### Test Results
+
+```bash
+✅ 10/10 serialization tests passing
+✅ 14/15 utils tests passing (1 skipped - CUDA N/A on Apple Silicon)
+✅ 10/10 checkpoint tests passing
+✅ Shell scripts validated for syntax and branding
+```
+
+See [USER_GUIDE.md](USER_GUIDE.md) for detailed testing documentation.
 
 ## Checkpoint System
 
