@@ -448,7 +448,7 @@ process_new_model() {
     fi
     
     if [[ "$resume" == "y" ]]; then
-        cmd="$cmd --resume"
+        cmd="$cmd --resume true"
     fi
     
     print_header "Processing Model"
@@ -515,7 +515,7 @@ process_model_only() {
     fi
     
     if [[ "$resume" == "y" ]]; then
-        cmd="$cmd --resume"
+        cmd="$cmd --resume true"
     fi
     
     print_header "Processing Model"
@@ -598,7 +598,7 @@ resume_processing() {
     print_info "Resuming from checkpoint..."
     echo ""
     
-    blasphemer --resume --model "$model_name"
+    blasphemer --model "$model_name" --resume true
 }
 
 show_help() {
