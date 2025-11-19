@@ -6,6 +6,8 @@ Developed by **Christopher Bradford** ([@sunkencity999](https://github.com/sunke
 
 Blasphemer removes censorship from transformer-based language models without expensive post-training, featuring automatic checkpoint/resume capabilities and streamlined GGUF conversion for LM Studio.
 
+**📚 New to abliteration?** Read [LEARN.md](LEARN.md) - a comprehensive guide from beginner to expert!
+
 ## What Makes Blasphemer Different
 
 Blasphemer builds on [Heretic v1.0.1](https://github.com/p-e-w/heretic) with critical improvements for macOS users:
@@ -155,7 +157,7 @@ blasphemer microsoft/Phi-3-mini-4k-instruct
 
 ## Documentation
 
-**Complete User Guide**: [USER_GUIDE.md](USER_GUIDE.md)
+**Complete User Guide**: [USER_GUIDE.md](USER_GUIDE.md)  
 **Deep Learning Guide**: [LEARN.md](LEARN.md) ⭐ **NEW!**
 
 ### USER_GUIDE.md - Practical Usage
