@@ -424,15 +424,107 @@ After conversion:
 3. Or manually load via "Load Model" → select the GGUF file
 4. Start using your decensored model
 
-### Alternative: Upload to Hugging Face
+### Uploading to Hugging Face
+
+#### Method 1: During Optimization (SafeTensors)
 
 During Blasphemer's save prompt:
 
 1. Choose "Upload the model to Hugging Face"
-2. In LM Studio:
-   - Search for your model by username/model-name
-   - Download directly from LM Studio
-   - LM Studio handles conversion automatically
+2. Enter your HF token when prompted
+3. Model uploads in SafeTensors format
+4. Others can download and use with transformers library
+
+#### Method 2: Upload GGUF Files (Recommended for LM Studio Users)
+
+Blasphemer includes an `upload_gguf.py` script for uploading quantized GGUF models to Hugging Face. This is ideal for sharing models that work directly in LM Studio.
+
+**Prerequisites:**
+
+```bash
+cd ~/blasphemer
+source venv/bin/activate
+huggingface-cli login  # Enter your token from https://huggingface.co/settings/tokens
+```
+
+**Basic Upload:**
+
+```bash
+# Upload a single quantized model with auto-generated model card
+python upload_gguf.py \
+    Llama-3.1-8B-Blasphemer-Q4_K_M.gguf \
+    --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+    --create-card
+```
+
+**Upload Multiple Quantizations:**
+
+```bash
+# Upload Q4_K_M (most popular - 4.5GB)
+python upload_gguf.py \
+    Llama-3.1-8B-Blasphemer-Q4_K_M.gguf \
+    --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+    --create-card
+
+# Upload Q5_K_M (higher quality - 5.5GB)
+python upload_gguf.py \
+    Llama-3.1-8B-Blasphemer-Q5_K_M.gguf \
+    --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+    --message "Add Q5_K_M quantization"
+
+# Upload F16 (full precision - 15GB, for power users)
+python upload_gguf.py \
+    Llama-3.1-8B-Blasphemer-F16.gguf \
+    --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+    --message "Add F16 full precision version"
+```
+
+**What the Script Does:**
+
+- ✅ Creates Hugging Face repository automatically
+- ✅ Uploads GGUF files with progress display
+- ✅ Generates professional model card with your metrics
+- ✅ Includes usage instructions for LM Studio, llama.cpp, and Python
+- ✅ Proper credits and citations
+
+**Custom Options:**
+
+```bash
+# Specify custom username
+python upload_gguf.py \
+    model.gguf \
+    --repo-name "My-Model-GGUF" \
+    --username "my-hf-username"
+
+# Custom commit message
+python upload_gguf.py \
+    model.gguf \
+    --repo-name "My-Model-GGUF" \
+    --message "Update with improved quantization"
+```
+
+**Model Card Contents:**
+
+The auto-generated model card includes:
+- Your actual quality metrics (KL divergence, refusal rate, trial number)
+- Quantization comparison table
+- Usage examples for LM Studio, llama.cpp, and Python
+- Ethical considerations and responsible use guidelines
+- Proper citations for Llama, Blasphemer, and research papers
+
+**Accessing Your Model:**
+
+After upload, users can:
+
+1. **In LM Studio:**
+   - Search: `YOUR_USERNAME/Model-Name-GGUF`
+   - Click download
+   - Start using immediately
+
+2. **Direct Download:**
+   - Visit: `https://huggingface.co/YOUR_USERNAME/Model-Name-GGUF`
+   - Download any quantization
+   - Import to LM Studio or llama.cpp
 
 ---
 
