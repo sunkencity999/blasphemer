@@ -393,8 +393,18 @@ select_operation() {
 process_new_model() {
     print_banner
     
+    print_info "DEBUG: Starting process_new_model()" >&2
+    
     # Model selection
+    print_info "DEBUG: Calling select_model()" >&2
     local model_name=$(select_model)
+    print_info "DEBUG: select_model returned: '$model_name'" >&2
+    
+    if [[ -z "$model_name" ]]; then
+        print_error "No model selected"
+        return 1
+    fi
+    
     print_success "Selected model: $model_name"
     
     # Save location
