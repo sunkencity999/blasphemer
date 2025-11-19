@@ -13,6 +13,7 @@ Blasphemer builds on [Heretic v1.0.1](https://github.com/p-e-w/heretic) with cri
 ### Key Enhancements
 
 - **Apple Silicon Support**: Native MPS GPU detection and optimized memory management
+- **Enhanced Observability**: Real-time quality metrics, trend analysis, and outcome predictions during optimization
 - **Checkpoint & Resume System**: Automatic progress saving with SQLite - never lose hours of work to interruptions
 - **LM Studio Integration**: One-command GGUF conversion with integrated llama.cpp
 - **Comprehensive Documentation**: Complete user guide tailored for macOS workflows

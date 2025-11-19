@@ -32,10 +32,11 @@ from pydantic import ValidationError
 from questionary import Choice, Style
 from rich.traceback import install
 
-from .config import Settings
-from .evaluator import Evaluator
-from .model import AbliterationParameters, Model
-from .utils import (
+from heretic.config import Settings
+from heretic.evaluator import Evaluator
+from heretic.model import AbliterationParameters, Model
+from heretic.progress import ProgressTracker
+from heretic.utils import (
     format_duration,
     get_readme_intro,
     get_trial_parameters,
@@ -245,6 +246,12 @@ def run():
 
     trial_index = 0
     start_time = time.perf_counter()
+    
+    # Initialize progress tracker for enhanced observability
+    progress_tracker = ProgressTracker(
+        total_trials=settings.n_trials,
+        model_name=settings.model
+    )
 
     def objective(trial: Trial) -> tuple[float, float]:
         nonlocal trial_index
@@ -316,13 +323,13 @@ def run():
         # Convert AbliterationParameters objects to dicts for JSON serialization
         trial.set_user_attr("parameters", {k: asdict(v) for k, v in parameters.items()})
 
-        print()
-        print(
-            f"Running trial [bold]{trial_index}[/] of [bold]{settings.n_trials}[/]..."
+        # Display progress with current parameters
+        progress_tracker.display_progress(
+            current_trial=trial_index,
+            current_params=get_trial_parameters(trial)
         )
-        print("* Parameters:")
-        for name, value in get_trial_parameters(trial).items():
-            print(f"  * {name} = [bold]{value}[/]")
+        
+        print()
         print("* Reloading model...")
         model.reload_model()
         print("* Abliterating...")
@@ -330,16 +337,22 @@ def run():
         print("* Evaluating...")
         score, kl_divergence, refusals = evaluator.get_score()
 
-        elapsed_time = time.perf_counter() - start_time
-        remaining_time = (elapsed_time / trial_index) * (
-            settings.n_trials - trial_index
+        # Add trial results to progress tracker
+        progress_tracker.add_trial(
+            trial_number=trial_index,
+            kl_divergence=kl_divergence,
+            refusals=refusals,
+            total_prompts=len(evaluator.bad_prompts),
+            parameters=get_trial_parameters(trial)
         )
-        print()
-        print(f"[grey50]Elapsed time: [bold]{format_duration(elapsed_time)}[/][/]")
-        if trial_index < settings.n_trials:
-            print(
-                f"[grey50]Estimated remaining time: [bold]{format_duration(remaining_time)}[/][/]"
-            )
+        
+        # Display updated progress with results
+        progress_tracker.display_progress(
+            current_trial=trial_index,
+            current_kl=kl_divergence,
+            current_refusals=refusals,
+            current_params=get_trial_parameters(trial)
+        )
 
         trial.set_user_attr("kl_divergence", kl_divergence)
         trial.set_user_attr("refusals", refusals)
@@ -371,6 +384,9 @@ def run():
         print(f"[bold cyan]Starting optimization:[/] {n_trials_to_run} trials")
         print(f"* Checkpoint: [bold]{storage_path}[/]")
         study.optimize(objective, n_trials=n_trials_to_run)
+        
+        # Display completion summary with quality analysis
+        progress_tracker.display_completion_summary()
         print()
         print(f"[bold green]✓ Checkpoint saved:[/] {storage_path}")
 

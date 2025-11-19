@@ -460,6 +460,156 @@ blasphemer --resume --n-trials 200 model-name
 
 The system will run 150 additional trials (200 total - 50 already complete).
 
+---
+
+## Enhanced Observability
+
+Blasphemer provides real-time insight into optimization quality, helping you understand what's happening during long runs and whether you're getting good results.
+
+### What You See During Optimization
+
+#### Real-Time Progress Display
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║ Blasphemer Optimization Progress                              ║
+║ Model: meta-llama/Llama-3.1-8B-Instruct                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+Trial 47/200 (23.5%, ~14h 23m remaining)
+████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Current Trial:
+  Parameters: attn.o_proj (and others)
+  KL Divergence: 0.234
+  Refusals: 5
+
+Best Trial So Far:
+  Trial: #42
+  KL Divergence: 0.198 (▼ improving)
+  Refusals: 3/200 (1.5%)
+  Quality: ██████████░░░░
+
+Trend: ▼ IMPROVING
+
+Expected Outcome: Very Good - Good balance of quality and safety removal
+```
+
+#### What Each Metric Means
+
+**KL Divergence** (Lower is better):
+- Measures how different the model's behavior is from the original
+- `< 0.15`: Excellent - minimal quality impact
+- `0.15-0.25`: Very good - good balance
+- `0.25-0.40`: Good - acceptable trade-off
+- `0.40-0.60`: Acceptable - noticeable impact
+- `> 0.60`: Poor - significant degradation
+
+**Refusals** (Lower is better):
+- Number of test prompts the model still refuses
+- Out of 200 test prompts by default
+- `< 2 (1%)`: Excellent removal of safety alignment
+- `2-5 (1-2.5%)`: Very good
+- `5-10 (2.5-5%)`: Good
+- `> 10 (>5%)`: May need more trials or different approach
+
+**Trend Analysis**:
+- `▼ IMPROVING`: Quality getting better over recent trials
+- `▬ STABLE`: Quality plateaued (may be done)
+- `▲ DEGRADING`: Quality getting worse (unusual)
+
+**Quality Bar**:
+- Visual representation of KL divergence
+- `██████████`: Excellent quality (low KL)
+- `█████░░░░░`: Medium quality
+- `░░░░░░░░░░`: Poor quality (high KL)
+
+### Completion Summary
+
+After optimization finishes, you see:
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║ ✓ Optimization Complete!                                      ║
+║ Model: meta-llama/Llama-3.1-8B-Instruct                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+Summary:
+  Total trials: 200
+  Total time: 16h 45m
+  Avg per trial: 5m 2s
+
+Best Result:
+  Trial: #178
+  KL Divergence: 0.143
+  Refusals: 2/200 (1.0%)
+  Quality: Excellent - High quality with minimal refusals
+
+Top 5 Trials:
+┌───────┬─────────┬──────────┬──────────────┐
+│ Trial │ KL Div  │ Refusals │ Quality      │
+├───────┼─────────┼──────────┼──────────────┤
+│ #178⭐│ 0.143   │ 2 (1.0%) │ ██████████░░ │
+│ #195  │ 0.156   │ 3 (1.5%) │ █████████░░░ │
+│ #142  │ 0.167   │ 2 (1.0%) │ ████████░░░░ │
+│ #189  │ 0.172   │ 4 (2.0%) │ ████████░░░░ │
+│ #203  │ 0.183   │ 3 (1.5%) │ ███████░░░░░ │
+└───────┴─────────┴──────────┴──────────────┘
+```
+
+### Understanding Quality Predictions
+
+The system predicts outcome quality based on current results:
+
+- **Excellent**: KL < 0.15, refusals < 1% → High-quality abliteration
+- **Very Good**: KL < 0.25, refusals < 2.5% → Production-ready
+- **Good**: KL < 0.40, refusals < 5% → Acceptable for most uses
+- **Acceptable**: KL < 0.60, refusals < 10% → Noticeable quality impact
+- **Poor**: KL > 0.60 or refusals > 10% → Consider different parameters
+
+### When to Stop Early
+
+The observability system helps you decide whether to continue:
+
+**Good signs** (keep going):
+- Trend showing `▼ IMPROVING`
+- Best trial improving every 5-10 trials
+- KL divergence decreasing
+- Refusals decreasing
+
+**Signs to consider stopping**:
+- Trend showing `▬ STABLE` for 30+ trials
+- No improvement in best trial for 50+ trials
+- Already achieved "Excellent" quality
+- Time constraints (you have good-enough results)
+
+**Warning signs**:
+- Trend showing `▲ DEGRADING` consistently
+- KL divergence increasing over time
+- Refusals increasing
+- Quality predictions getting worse
+
+### Benefits of Enhanced Observability
+
+1. **Confidence During Long Runs**: Know if it's working without waiting 16 hours
+2. **Early Quality Assessment**: Predict final outcome quality early
+3. **Informed Decisions**: Stop early if you've achieved your goal
+4. **Troubleshooting**: Identify if something is wrong (degrading trend)
+5. **Learning**: Understand what good results look like for different models
+
+### Technical Details
+
+The progress tracker:
+- Analyzes last 10 trials for trend detection
+- Weights KL divergence (60%) and refusals (40%) for overall quality score
+- Compares first half vs second half of recent trials for trend direction
+- Provides quality predictions based on research-backed thresholds
+- Updates after every trial completion
+
+All metrics are also saved to the checkpoint database for later analysis.
+
+---
+
 ### Configuration Options
 
 #### Command Line
