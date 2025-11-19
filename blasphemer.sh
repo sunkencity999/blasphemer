@@ -35,42 +35,42 @@ VENV_DIR="$SCRIPT_DIR/venv"
 
 print_banner() {
     clear
-    echo -e "${CYAN}${BOLD}"
-    echo "█▀▄░█░░░█▀█░█▀▀░█▀█░█░█░█▀▀░█▄█░█▀▀░█▀▄"
-    echo "█▀▄░█░░░█▀█░▀▀█░█▀▀░█▀█░█▀▀░█░█░█▀▀░█▀▄"
-    echo "▀▀░░▀▀▀░▀░▀░▀▀▀░▀░░░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀"
-    echo -e "${NC}"
-    echo -e "${DIM}Developed by Christopher Bradford (@sunkencity999)${NC}"
-    echo -e "${DIM}Enhanced fork of Heretic - optimized for macOS${NC}"
-    echo ""
+    printf "%b%b\n" "${CYAN}" "${BOLD}"
+    printf "█▀▄░█░░░█▀█░█▀▀░█▀█░█░█░█▀▀░█▄█░█▀▀░█▀▄\n"
+    printf "█▀▄░█░░░█▀█░▀▀█░█▀▀░█▀█░█▀▀░█░█░█▀▀░█▀▄\n"
+    printf "▀▀░░▀▀▀░▀░▀░▀▀▀░▀░░░▀░▀░▀▀▀░▀░▀░▀▀▀░▀░▀\n"
+    printf "%b\n" "${NC}"
+    printf "%bDeveloped by Christopher Bradford (@sunkencity999)%b\n" "${DIM}" "${NC}"
+    printf "%bEnhanced fork of Heretic - optimized for macOS%b\n" "${DIM}" "${NC}"
+    printf "\n"
 }
 
 print_header() {
-    echo ""
-    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}${BOLD}  $1${NC}"
-    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-    echo ""
+    printf "\n"
+    printf "%b%b═══════════════════════════════════════════════════════════════%b\n" "${CYAN}" "${BOLD}" "${NC}"
+    printf "%b%b  %s%b\n" "${CYAN}" "${BOLD}" "$1" "${NC}"
+    printf "%b%b═══════════════════════════════════════════════════════════════%b\n" "${CYAN}" "${BOLD}" "${NC}"
+    printf "\n"
 }
 
 print_option() {
-    echo -e "  ${BOLD}[$1]${NC} $2"
+    printf "  %b[%s]%b %b\n" "${BOLD}" "$1" "${NC}" "$2"
 }
 
 print_success() {
-    echo -e "${GREEN}✓${NC} $1"
+    printf "%b✓%b %s\n" "${GREEN}" "${NC}" "$1"
 }
 
 print_error() {
-    echo -e "${RED}✗${NC} $1"
+    printf "%b✗%b %s\n" "${RED}" "${NC}" "$1"
 }
 
 print_info() {
-    echo -e "${CYAN}ℹ${NC} $1"
+    printf "%bℹ%b %s\n" "${CYAN}" "${NC}" "$1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    printf "%b⚠%b %s\n" "${YELLOW}" "${NC}" "$1"
 }
 
 # Read user input with validation
@@ -80,8 +80,8 @@ read_choice() {
     local choice
     
     while true; do
-        echo ""
-        read -p "$(echo -e ${BOLD}$prompt${NC}) " choice
+        printf "\n"
+        read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") " choice
         
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$max_option" ]; then
             echo "$choice"
@@ -100,10 +100,10 @@ read_yes_no() {
     
     while true; do
         if [[ "$default" == "y" ]]; then
-            read -p "$(echo -e ${BOLD}$prompt${NC}) [Y/n]: " answer
+            read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") [Y/n]: " answer
             answer=${answer:-y}
         else
-            read -p "$(echo -e ${BOLD}$prompt${NC}) [y/N]: " answer
+            read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") [y/N]: " answer
             answer=${answer:-n}
         fi
         
@@ -122,10 +122,10 @@ read_text() {
     local text
     
     if [[ -n "$default" ]]; then
-        read -p "$(echo -e ${BOLD}$prompt${NC}) [$default]: " text
+        read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}") [$default]: " text
         text=${text:-$default}
     else
-        read -p "$(echo -e ${BOLD}$prompt${NC}): " text
+        read -p "$(printf "%b%s%b" "${BOLD}" "$prompt" "${NC}"): " text
     fi
     
     echo "$text"
