@@ -204,29 +204,29 @@ show_recommended_models() {
 }
 
 select_model() {
-    print_header "Model Selection"
+    print_header "Model Selection" >&2
     
-    echo "Choose an option:"
-    echo ""
-    print_option "1" "Use a recommended model"
-    print_option "2" "Enter a custom model name"
-    print_option "3" "Show recommended models first"
-    echo ""
+    echo "Choose an option:" >&2
+    echo "" >&2
+    print_option "1" "Use a recommended model" >&2
+    print_option "2" "Enter a custom model name" >&2
+    print_option "3" "Show recommended models first" >&2
+    echo "" >&2
     
     local choice=$(read_choice "Enter your choice (1-3):" 3)
     
     case $choice in
         1)
-            echo ""
-            echo "Select a recommended model:"
-            echo ""
-            print_option "1" "microsoft/Phi-3-mini-4k-instruct ${DIM}(3.8B - Fast, good for testing)${NC}"
-            print_option "2" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}"
-            print_option "3" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - Most popular)${NC}"
-            print_option "4" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High quality)${NC}"
-            print_option "5" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}"
-            print_option "6" "Enter custom model"
-            echo ""
+            echo "" >&2
+            echo "Select a recommended model:" >&2
+            echo "" >&2
+            print_option "1" "microsoft/Phi-3-mini-4k-instruct ${DIM}(3.8B - Fast, good for testing)${NC}" >&2
+            print_option "2" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
+            print_option "3" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - Most popular)${NC}" >&2
+            print_option "4" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High quality)${NC}" >&2
+            print_option "5" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
+            print_option "6" "Enter custom model" >&2
+            echo "" >&2
             
             local model_choice=$(read_choice "Enter your choice (1-6):" 6)
             
@@ -259,16 +259,16 @@ select_save_location() {
     local model_name="$1"
     local model_basename=$(basename "$model_name")
     
-    print_header "Save Location"
+    print_header "Save Location" >&2
     
     # Ensure default directory exists
     mkdir -p "$DEFAULT_MODEL_DIR"
     
-    echo "Where should the decensored model be saved?"
-    echo ""
-    print_option "1" "Default location: ${DIM}$DEFAULT_MODEL_DIR/$model_basename-blasphemer${NC}"
-    print_option "2" "Custom location"
-    echo ""
+    echo "Where should the decensored model be saved?" >&2
+    echo "" >&2
+    print_option "1" "Default location: ${DIM}$DEFAULT_MODEL_DIR/$model_basename-blasphemer${NC}" >&2
+    print_option "2" "Custom location" >&2
+    echo "" >&2
     
     local choice=$(read_choice "Enter your choice (1-2):" 2)
     
@@ -290,18 +290,18 @@ select_save_location() {
 ################################################################################
 
 select_quantization() {
-    print_header "Quantization Level"
+    print_header "Quantization Level" >&2
     
-    echo "Select GGUF quantization level:"
-    echo ""
-    print_option "1" "Q4_K_M ${DIM}(~4.5GB for 7B model - Recommended balance)${NC}"
-    print_option "2" "Q5_K_M ${DIM}(~5.3GB for 7B model - Better quality)${NC}"
-    print_option "3" "Q8_0 ${DIM}(~8GB for 7B model - High quality)${NC}"
-    print_option "4" "F16 ${DIM}(~14GB for 7B model - Full precision)${NC}"
-    print_option "5" "Skip GGUF conversion"
-    echo ""
-    print_info "Lower quantization = smaller file size, faster inference, slight quality loss"
-    echo ""
+    echo "Select GGUF quantization level:" >&2
+    echo "" >&2
+    print_option "1" "Q4_K_M ${DIM}(~4.5GB for 7B model - Recommended balance)${NC}" >&2
+    print_option "2" "Q5_K_M ${DIM}(~5.3GB for 7B model - Better quality)${NC}" >&2
+    print_option "3" "Q8_0 ${DIM}(~8GB for 7B model - High quality)${NC}" >&2
+    print_option "4" "F16 ${DIM}(~14GB for 7B model - Full precision)${NC}" >&2
+    print_option "5" "Skip GGUF conversion" >&2
+    echo "" >&2
+    print_info "Lower quantization = smaller file size, faster inference, slight quality loss" >&2
+    echo "" >&2
     
     local choice=$(read_choice "Enter your choice (1-5):" 5)
     
@@ -319,10 +319,10 @@ select_quantization() {
 ################################################################################
 
 configure_advanced_options() {
-    print_header "Advanced Options"
+    print_header "Advanced Options" >&2
     
-    echo "Configure advanced settings:"
-    echo ""
+    echo "Configure advanced settings:" >&2
+    echo "" >&2
     
     # Number of trials
     local n_trials
@@ -335,13 +335,13 @@ configure_advanced_options() {
         return 0
     fi
     
-    echo ""
+    echo "" >&2
     n_trials=$(read_text "Number of optimization trials" "200")
     
-    echo ""
+    echo "" >&2
     local batch_size=$(read_text "Batch size (0 for auto-detect)" "0")
     
-    echo ""
+    echo "" >&2
     local resume=$(read_yes_no "Resume from existing checkpoint if available?" "n")
     
     echo "$n_trials"
@@ -354,17 +354,17 @@ configure_advanced_options() {
 ################################################################################
 
 select_operation() {
-    print_header "Operation"
+    print_header "Operation" >&2
     
-    echo "What would you like to do?"
-    echo ""
-    print_option "1" "Process a new model ${DIM}(Full workflow: decensor + save + convert)${NC}"
-    print_option "2" "Process model only ${DIM}(Decensor without conversion)${NC}"
-    print_option "3" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}"
-    print_option "4" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}"
-    print_option "5" "View help and documentation"
-    print_option "6" "Exit"
-    echo ""
+    echo "What would you like to do?" >&2
+    echo "" >&2
+    print_option "1" "Process a new model ${DIM}(Full workflow: decensor + save + convert)${NC}" >&2
+    print_option "2" "Process model only ${DIM}(Decensor without conversion)${NC}" >&2
+    print_option "3" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
+    print_option "4" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
+    print_option "5" "View help and documentation" >&2
+    print_option "6" "Exit" >&2
+    echo "" >&2
     
     local choice=$(read_choice "Enter your choice (1-6):" 6)
     echo "$choice"
