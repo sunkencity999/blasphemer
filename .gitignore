@@ -40,3 +40,6 @@ __pycache__/
 
 # Install script state
 .blasphemer_install_state
+
+# Saved models
+uncensoredModels/
