@@ -133,7 +133,16 @@ class TestTrialFormatting:
         trial.params = {"param1": 0.5}
         trial.user_attrs = {
             "direction_index": 1,
-            "parameters": {},  # Empty dict for parameters
+            "parameters": {
+                # Parameters are now stored as dicts (not dataclasses)
+                # This reflects the JSON serialization fix
+                "attn.o_proj": {
+                    "max_weight": 1.0,
+                    "max_weight_position": 16.0,
+                    "min_weight": 0.5,
+                    "min_weight_distance": 8.0
+                }
+            },
             "kl_divergence": 0.5,
             "refusals": 2
         }
@@ -158,7 +167,15 @@ class TestTrialFormatting:
         trial.params = {}
         trial.user_attrs = {
             "direction_index": 0,
-            "parameters": {},  # Empty dict for parameters
+            "parameters": {
+                # Parameters stored as dicts after JSON serialization fix
+                "mlp.down_proj": {
+                    "max_weight": 1.1,
+                    "max_weight_position": 18.0,
+                    "min_weight": 0.3,
+                    "min_weight_distance": 9.0
+                }
+            },
             "kl_divergence": 0.3,
             "refusals": 1
         }
