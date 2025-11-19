@@ -187,19 +187,19 @@ setup_environment() {
 show_recommended_models() {
     print_header "Recommended Models"
     
-    echo -e "${BOLD}Quick Testing (15-20 minutes):${NC}"
-    echo "  • microsoft/Phi-3-mini-4k-instruct (3.8B)"
-    echo "  • microsoft/Phi-3-mini-128k-instruct (3.8B)"
-    echo ""
-    echo -e "${BOLD}Good Quality (30-60 minutes):${NC}"
-    echo "  • Qwen/Qwen2.5-7B-Instruct"
-    echo "  • meta-llama/Llama-3.1-8B-Instruct"
-    echo "  • mistralai/Mistral-7B-Instruct-v0.3"
-    echo ""
-    echo -e "${BOLD}High Quality (60-90+ minutes):${NC}"
-    echo "  • Qwen/Qwen2.5-14B-Instruct"
-    echo "  • meta-llama/Llama-3.1-70B-Instruct (requires 64GB+ RAM)"
-    echo ""
+    printf "%bQuick Testing (15-20 minutes):%b\n" "${BOLD}" "${NC}"
+    printf "  • microsoft/Phi-3-mini-4k-instruct (3.8B)\n"
+    printf "  • microsoft/Phi-3-mini-128k-instruct (3.8B)\n"
+    printf "\n"
+    printf "%bGood Quality (30-60 minutes):%b\n" "${BOLD}" "${NC}"
+    printf "  • Qwen/Qwen2.5-7B-Instruct\n"
+    printf "  • meta-llama/Llama-3.1-8B-Instruct\n"
+    printf "  • mistralai/Mistral-7B-Instruct-v0.3\n"
+    printf "\n"
+    printf "%bHigh Quality (60-90+ minutes):%b\n" "${BOLD}" "${NC}"
+    printf "  • Qwen/Qwen2.5-14B-Instruct\n"
+    printf "  • meta-llama/Llama-3.1-70B-Instruct (requires 64GB+ RAM)\n"
+    printf "\n"
     print_info "See USER_GUIDE.md for complete model recommendations"
 }
 
@@ -397,12 +397,12 @@ process_new_model() {
     
     # Summary
     print_header "Processing Summary"
-    echo -e "${BOLD}Model:${NC} $model_name"
-    echo -e "${BOLD}Save to:${NC} $save_path"
-    echo -e "${BOLD}Trials:${NC} $n_trials"
-    echo -e "${BOLD}Batch size:${NC} $([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
-    echo -e "${BOLD}Quantization:${NC} $quant_type"
-    echo ""
+    printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
+    printf "%bSave to:%b %s\n" "${BOLD}" "${NC}" "$save_path"
+    printf "%bTrials:%b %s\n" "${BOLD}" "${NC}" "$n_trials"
+    printf "%bBatch size:%b %s\n" "${BOLD}" "${NC}" "$([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
+    printf "%bQuantization:%b %s\n" "${BOLD}" "${NC}" "$quant_type"
+    printf "\n"
     
     local confirm=$(read_yes_no "Start processing?" "y")
     
@@ -467,10 +467,10 @@ process_model_only() {
     local resume=$(echo "$options" | sed -n '3p')
     
     print_header "Processing Summary"
-    echo -e "${BOLD}Model:${NC} $model_name"
-    echo -e "${BOLD}Trials:${NC} $n_trials"
-    echo -e "${BOLD}Batch size:${NC} $([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
-    echo ""
+    printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
+    printf "%bTrials:%b %s\n" "${BOLD}" "${NC}" "$n_trials"
+    printf "%bBatch size:%b %s\n" "${BOLD}" "${NC}" "$([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
+    printf "\n"
     
     local confirm=$(read_yes_no "Start processing?" "y")
     
