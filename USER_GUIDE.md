@@ -439,6 +439,16 @@ During Blasphemer's save prompt:
 
 Blasphemer includes an `upload_gguf.py` script for uploading quantized GGUF models to Hugging Face. This is ideal for sharing models that work directly in LM Studio.
 
+**Quick Example:**
+
+```bash
+# Upload a quantized model with auto-generated model card
+python upload_gguf.py \
+    Llama-3.1-8B-Blasphemer-Q4_K_M.gguf \
+    --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+    --create-card
+```
+
 **Prerequisites:**
 
 ```bash

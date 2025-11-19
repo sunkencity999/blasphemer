@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """
 Upload GGUF models to Hugging Face Hub
+
+Example usage:
+    # Upload a single quantized model with auto-generated model card
+    python upload_gguf.py \
+        Llama-3.1-8B-Blasphemer-Q4_K_M.gguf \
+        --repo-name "Llama-3.1-8B-Blasphemer-GGUF" \
+        --create-card
+    
+    # Upload additional quantizations to the same repo
+    python upload_gguf.py \
+        Llama-3.1-8B-Blasphemer-Q5_K_M.gguf \
+        --repo-name "Llama-3.1-8B-Blasphemer-GGUF"
 """
 
 from huggingface_hub import HfApi, create_repo
