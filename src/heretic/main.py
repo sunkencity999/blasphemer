@@ -442,10 +442,17 @@ def run():
         print("* Reloading model...")
         model.reload_model()
         print("* Abliterating...")
+        
+        # Convert parameter dicts back to AbliterationParameters objects
+        parameters_dict = trial.user_attrs["parameters"]
+        parameters = {
+            k: AbliterationParameters(**v) for k, v in parameters_dict.items()
+        }
+        
         model.abliterate(
             refusal_directions,
             trial.user_attrs["direction_index"],
-            trial.user_attrs["parameters"],
+            parameters,
         )
 
         while True:
