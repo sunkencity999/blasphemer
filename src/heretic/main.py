@@ -481,6 +481,11 @@ def run():
                         if not save_directory:
                             continue
 
+                        # Expand ~ and environment variables in path
+                        import os
+                        save_directory = os.path.expanduser(save_directory)
+                        save_directory = os.path.abspath(save_directory)
+
                         print("Saving model...")
                         model.model.save_pretrained(save_directory)
                         model.tokenizer.save_pretrained(save_directory)
