@@ -635,16 +635,23 @@ show_help() {
 
 main() {
     # Setup environment
+    printf "DEBUG: Starting main()\\n" >&2
     setup_environment
+    printf "DEBUG: Environment setup complete\\n" >&2
     
     # Main loop
     while true; do
         print_banner
         
         local operation=$(select_operation)
+        printf "DEBUG: Selected operation: '%s'\\n" "$operation" >&2
         
         case $operation in
-            1) process_new_model ;;
+            1) 
+                printf "DEBUG: Calling process_new_model()\\n" >&2
+                process_new_model
+                printf "DEBUG: process_new_model() returned: %s\\n" "$?" >&2
+                ;;
             2) process_model_only ;;
             3) convert_existing_model ;;
             4) resume_processing ;;
@@ -655,8 +662,12 @@ main() {
                 echo ""
                 exit 0
                 ;;
+            *)
+                printf "DEBUG: Unknown operation: '%s'\\n" "$operation" >&2
+                ;;
         esac
         
+        printf "DEBUG: Reached end of case statement\\n" >&2
         echo ""
         read -p "Press Enter to return to main menu..."
     done
