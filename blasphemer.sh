@@ -367,6 +367,155 @@ configure_advanced_options() {
 }
 
 ################################################################################
+# Checkpoint Management
+################################################################################
+
+manage_checkpoints() {
+    print_banner
+    print_header "Checkpoint Management"
+    
+    local checkpoint_dir="${HOME}/.blasphemer_checkpoints"
+    
+    # Check if checkpoint directory exists
+    if [[ ! -d "$checkpoint_dir" ]]; then
+        print_warning "No checkpoint directory found at: $checkpoint_dir"
+        echo ""
+        print_info "Checkpoints will be created here when you run optimization."
+        return 0
+    fi
+    
+    # Find all checkpoint files
+    local checkpoints=()
+    while IFS= read -r -d '' file; do
+        checkpoints+=("$file")
+    done < <(find "$checkpoint_dir" -name "*.db" -type f -print0 2>/dev/null)
+    
+    if [[ ${#checkpoints[@]} -eq 0 ]]; then
+        print_warning "No checkpoints found in: $checkpoint_dir"
+        echo ""
+        print_info "Checkpoints are created automatically during optimization runs."
+        return 0
+    fi
+    
+    # Display checkpoints with details
+    echo "Found ${#checkpoints[@]} checkpoint(s):"
+    echo ""
+    
+    local index=1
+    local checkpoint_info=()
+    for checkpoint in "${checkpoints[@]}"; do
+        local basename=$(basename "$checkpoint")
+        local size=$(du -h "$checkpoint" | cut -f1)
+        local modified=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$checkpoint" 2>/dev/null || date -r "$checkpoint" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "Unknown")
+        
+        # Try to extract trial count using sqlite3
+        local trials="?"
+        if command -v sqlite3 &> /dev/null; then
+            trials=$(sqlite3 "$checkpoint" "SELECT COUNT(*) FROM trials WHERE state='COMPLETE';" 2>/dev/null || echo "?")
+        fi
+        
+        checkpoint_info+=("$checkpoint|$basename|$size|$modified|$trials")
+        
+        printf "%b%d.%b %s\n" "${BOLD}" "$index" "${NC}" "$basename"
+        printf "   Size: %s | Modified: %s | Trials: %s\n" "$size" "$modified" "$trials"
+        echo ""
+        index=$((index + 1))
+    done
+    
+    echo ""
+    print_option "D" "Delete checkpoint(s)" >&2
+    print_option "Q" "Return to main menu" >&2
+    echo "" >&2
+    
+    read -p "Enter your choice: " choice
+    choice=$(echo "$choice" | tr '[:lower:]' '[:upper:]')
+    
+    case "$choice" in
+        D)
+            delete_checkpoints "${checkpoints[@]}"
+            ;;
+        Q)
+            return 0
+            ;;
+        *)
+            print_error "Invalid choice"
+            return 1
+            ;;
+    esac
+}
+
+delete_checkpoints() {
+    local checkpoints=("$@")
+    
+    echo ""
+    print_header "Delete Checkpoints"
+    echo ""
+    
+    echo "Select checkpoint(s) to delete:"
+    echo ""
+    
+    local index=1
+    for checkpoint in "${checkpoints[@]}"; do
+        local basename=$(basename "$checkpoint")
+        printf "%b%d.%b %s\n" "${BOLD}" "$index" "${NC}" "$basename"
+        index=$((index + 1))
+    done
+    
+    echo ""
+    printf "%bA.%b Delete all checkpoints\n" "${BOLD}" "${NC}"
+    printf "%bQ.%b Cancel\n" "${BOLD}" "${NC}"
+    echo ""
+    
+    read -p "Enter checkpoint number(s) (comma-separated) or A/Q: " selection
+    selection=$(echo "$selection" | tr '[:lower:]' '[:upper:]')
+    
+    case "$selection" in
+        Q)
+            print_info "Cancelled"
+            return 0
+            ;;
+        A)
+            echo ""
+            print_warning "This will delete ALL ${#checkpoints[@]} checkpoint(s)!"
+            local confirm=$(read_yes_no "Are you sure?" "n")
+            
+            if [[ "$confirm" == "y" ]]; then
+                for checkpoint in "${checkpoints[@]}"; do
+                    rm -f "$checkpoint"
+                    print_success "Deleted: $(basename "$checkpoint")"
+                done
+                echo ""
+                print_success "All checkpoints deleted"
+            else
+                print_info "Cancelled"
+            fi
+            ;;
+        *)
+            # Parse comma-separated numbers
+            IFS=',' read -ra NUMBERS <<< "$selection"
+            local deleted=0
+            
+            for num in "${NUMBERS[@]}"; do
+                num=$(echo "$num" | tr -d ' ')
+                if [[ "$num" =~ ^[0-9]+$ ]] && [[ $num -ge 1 ]] && [[ $num -le ${#checkpoints[@]} ]]; then
+                    local checkpoint="${checkpoints[$((num-1))]}"
+                    rm -f "$checkpoint"
+                    print_success "Deleted: $(basename "$checkpoint")"
+                    deleted=$((deleted + 1))
+                else
+                    print_warning "Invalid selection: $num"
+                fi
+            done
+            
+            if [[ $deleted -gt 0 ]]; then
+                echo ""
+                print_success "Deleted $deleted checkpoint(s)"
+            fi
+            ;;
+    esac
+}
+
+################################################################################
 # Operation Selection
 ################################################################################
 
@@ -379,11 +528,12 @@ select_operation() {
     print_option "2" "Process model only ${DIM}(Decensor without conversion)${NC}" >&2
     print_option "3" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
     print_option "4" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
-    print_option "5" "View help and documentation" >&2
-    print_option "6" "Exit" >&2
+    print_option "5" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
+    print_option "6" "View help and documentation" >&2
+    print_option "7" "Exit" >&2
     echo "" >&2
     
-    local choice=$(read_choice "Enter your choice (1-6):" 6)
+    local choice=$(read_choice "Enter your choice (1-7):" 7)
     printf "%s" "$choice"
 }
 
@@ -656,8 +806,9 @@ main() {
             2) process_model_only ;;
             3) convert_existing_model ;;
             4) resume_processing ;;
-            5) show_help ;;
-            6)
+            5) manage_checkpoints ;;
+            6) show_help ;;
+            7)
                 echo ""
                 print_success "Thank you for using Blasphemer!"
                 echo ""
