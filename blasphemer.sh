@@ -374,15 +374,27 @@ manage_checkpoints() {
     print_banner
     print_header "Checkpoint Management"
     
-    local checkpoint_dir="${HOME}/.blasphemer_checkpoints"
+    # Check multiple possible checkpoint locations
+    local checkpoint_dir=""
+    if [[ -d "${SCRIPT_DIR}/.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="${SCRIPT_DIR}/.blasphemer_checkpoints"
+    elif [[ -d "${HOME}/.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="${HOME}/.blasphemer_checkpoints"
+    elif [[ -d "./.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="./.blasphemer_checkpoints"
+    fi
     
     # Check if checkpoint directory exists
-    if [[ ! -d "$checkpoint_dir" ]]; then
-        print_warning "No checkpoint directory found at: $checkpoint_dir"
+    if [[ -z "$checkpoint_dir" ]] || [[ ! -d "$checkpoint_dir" ]]; then
+        print_warning "No checkpoint directory found"
         echo ""
-        print_info "Checkpoints will be created here when you run optimization."
+        print_info "Checkpoints will be created when you run optimization."
+        print_info "They will be stored in: ${SCRIPT_DIR}/.blasphemer_checkpoints"
         return 0
     fi
+    
+    print_info "Checkpoint directory: $checkpoint_dir"
+    echo ""
     
     # Find all checkpoint files
     local checkpoints=()
