@@ -33,6 +33,31 @@ blasphemer --resume meta-llama/Llama-3.1-8B-Instruct
 # Checkpoints saved after every trial - Ctrl+C safe
 ```
 
+### Interactive Menu & Progress Tracking
+
+**Interactive Menu:**
+
+![Blasphemer Interactive Menu](docs/images/blasphemerUI.png)
+
+Clean, user-friendly menu for:
+- Processing new models with optimized workflows
+- Resuming interrupted runs from checkpoints
+- Managing and deleting saved checkpoints
+- Converting models to GGUF format
+- Accessing help and documentation
+
+**Real-time Progress Display:**
+
+![Progress Tracking UI](docs/images/progressUI.png)
+
+Live optimization feedback showing:
+- Current trial progress with time estimates
+- Best trial metrics (KL divergence, refusal rate)
+- Quality bar visualization
+- Trend analysis (improving/declining)
+- Recent performance averages
+- Expected outcome predictions
+
 ## About Heretic
 
 Heretic (the original project) combines advanced directional ablation with TPE-based parameter optimization to automatically remove safety alignment from language models. It works completely automatically, requiring no understanding of transformer internals.
