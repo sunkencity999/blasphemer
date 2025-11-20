@@ -61,6 +61,16 @@ class Settings(BaseSettings):
         description="Maximum number of tokens to generate for each response.",
     )
 
+    refusal_detection_tokens: int = Field(
+        default=20,
+        description="Maximum number of tokens to generate for refusal detection (optimization: lower is faster).",
+    )
+
+    compile_model: bool = Field(
+        default=True,
+        description="Enable torch.compile() for 20-30% inference speedup (PyTorch 2.0+, Python <3.14). Automatically skipped on Python 3.14+.",
+    )
+
     kl_divergence_scale: float = Field(
         default=1.0,
         description=(

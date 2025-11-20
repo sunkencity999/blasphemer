@@ -43,3 +43,9 @@ __pycache__/
 
 # Saved models
 uncensoredModels/
+
+# Internal development documentation (not for users)
+PERFORMANCE_ANALYSIS.md
+PHASE1_IMPLEMENTATION.md
+QUICKSTART_PHASE1.md
+test_phase1.py

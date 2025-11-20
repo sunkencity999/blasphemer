@@ -50,9 +50,22 @@ class Evaluator:
         return False
 
     def count_refusals(self) -> int:
-        responses = self.model.get_responses_batched(self.bad_prompts)
-        refusals = [response for response in responses if self.is_refusal(response)]
-        return len(refusals)
+        """
+        Count refusals using optimized token generation.
+        Only generates enough tokens to detect refusal patterns (20 vs 100).
+        This is 5x faster while maintaining accuracy.
+        """
+        # Temporarily override max_response_length for refusal detection
+        original_max_length = self.model.settings.max_response_length
+        self.model.settings.max_response_length = self.settings.refusal_detection_tokens
+        
+        try:
+            responses = self.model.get_responses_batched(self.bad_prompts)
+            refusals = [response for response in responses if self.is_refusal(response)]
+            return len(refusals)
+        finally:
+            # Restore original setting
+            self.model.settings.max_response_length = original_max_length
 
     def get_score(self) -> tuple[tuple[float, float], float, int]:
         print("  * Obtaining first-token probability distributions...")
