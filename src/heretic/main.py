@@ -45,6 +45,379 @@ from heretic.utils import (
 )
 
 
+def discover_models_in_directory(search_path: str) -> list:
+    """
+    Discover model directories (containing config.json) in the given path.
+    
+    Args:
+        search_path: Directory path to search
+        
+    Returns:
+        List of Path objects for discovered models
+    """
+    import os
+    search_path = os.path.expanduser(search_path)
+    search_path = os.path.abspath(search_path)
+    base_path = Path(search_path)
+    
+    if not base_path.exists():
+        return []
+    
+    models = []
+    
+    # Check if the path itself is a model
+    if (base_path / "config.json").exists():
+        models.append(base_path)
+        return models
+    
+    # Search subdirectories (one level deep)
+    try:
+        for item in base_path.iterdir():
+            if item.is_dir() and (item / "config.json").exists():
+                models.append(item)
+    except PermissionError:
+        pass
+    
+    return sorted(models, key=lambda p: p.name)
+
+
+def interactive_model_upload() -> None:
+    """
+    Interactive workflow to discover and upload models to HuggingFace.
+    """
+    print(f"\n[bold cyan]Upload Model to Hugging Face[/]")
+    print("=" * 80)
+    print("This will help you upload a model to HuggingFace Hub.")
+    print()
+    
+    # Ask for search path
+    search_path = questionary.path(
+        "Enter directory to search for models (or direct model path):",
+        only_directories=True,
+    ).ask()
+    
+    if not search_path:
+        print("[yellow]Upload cancelled[/]")
+        return
+    
+    # Discover models
+    print("\n[cyan]Searching for models...[/]")
+    models = discover_models_in_directory(search_path)
+    
+    if not models:
+        print(f"[yellow]No models found in {search_path}[/]")
+        print("[dim]Models must contain a config.json file.[/]")
+        return
+    
+    # Show discovered models
+    print(f"[green]Found {len(models)} model(s):[/]")
+    model_choices = [
+        f"{model.name} ({model})" for model in models
+    ]
+    
+    # Let user select model
+    selected = questionary.select(
+        "Select model to upload:",
+        choices=model_choices,
+        style=Style([("highlighted", "reverse")]),
+    ).ask()
+    
+    if not selected:
+        print("[yellow]Upload cancelled[/]")
+        return
+    
+    # Extract model path from selection
+    model_index = model_choices.index(selected)
+    model_path = models[model_index]
+    
+    # Upload the model
+    upload_model_to_huggingface(
+        model_path=str(model_path),
+        model_name=model_path.name,
+    )
+
+
+def upload_model_to_huggingface(
+    model_path: str,
+    model_name: str = None,
+    token: str = None,
+) -> None:
+    """
+    Upload a model directory to HuggingFace Hub.
+    
+    Args:
+        model_path: Path to the model directory
+        model_name: Optional model name (for default repo name)
+        token: Optional HF token (will prompt if not provided)
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    
+    model_path = Path(model_path)
+    if not model_path.exists():
+        print(f"[red]Error: Model path does not exist: {model_path}[/]")
+        return
+    
+    print(f"\n[bold cyan]Uploading Model to Hugging Face[/]")
+    print("=" * 80)
+    print(f"Model path: {model_path}")
+    print()
+    
+    # Get token
+    if not token:
+        token = huggingface_hub.get_token()
+    if not token:
+        token = questionary.password("Hugging Face access token:").ask()
+    if not token:
+        print("[yellow]Upload cancelled[/]")
+        return
+    
+    # Get user info
+    try:
+        user = huggingface_hub.whoami(token)
+        print(f"Logged in as [bold]{user['fullname']} ({user['email']})[/]")
+    except Exception as e:
+        print(f"[red]Error: Invalid token or connection failed: {e}[/]")
+        return
+    
+    # Get repo name
+    default_name = model_name or model_path.name
+    repo_id = questionary.text(
+        "Name of repository:",
+        default=f"{user['name']}/{default_name}",
+    ).ask()
+    
+    if not repo_id:
+        print("[yellow]Upload cancelled[/]")
+        return
+    
+    # Get visibility
+    visibility = questionary.select(
+        "Should the repository be public or private?",
+        choices=["Public", "Private"],
+        style=Style([("highlighted", "reverse")]),
+    ).ask()
+    private = visibility == "Private"
+    
+    # Ask about model card
+    create_card = questionary.confirm(
+        "Would you like to create a model card?",
+        default=True,
+    ).ask()
+    
+    # Check for GGUF files
+    gguf_files = list(model_path.glob("*.gguf"))
+    
+    # Load and upload model
+    try:
+        # If there are GGUF files, upload entire directory to preserve them
+        if gguf_files:
+            print(f"\n[cyan]Found {len(gguf_files)} GGUF file(s) - uploading entire directory...[/]")
+            for gguf in gguf_files:
+                print(f"  • {gguf.name}")
+            print()
+            
+            # Create repository first
+            from huggingface_hub import HfApi, upload_folder
+            api = HfApi()
+            
+            print("[cyan]Creating repository...[/]")
+            api.create_repo(
+                repo_id=repo_id,
+                repo_type="model",
+                private=private,
+                token=token,
+                exist_ok=True,
+            )
+            
+            # Upload entire folder to preserve all files
+            print("[cyan]Uploading files (this may take several minutes for large GGUF files)...[/]")
+            
+            # List all files to be uploaded
+            all_files = list(model_path.glob("*"))
+            print(f"[dim]Uploading {len(all_files)} files total...[/]")
+            
+            upload_folder(
+                folder_path=str(model_path),
+                repo_id=repo_id,
+                repo_type="model",
+                token=token,
+                ignore_patterns=[".*"],  # Only ignore hidden files
+            )
+            print("[green]✓ All files uploaded (including GGUFs)[/]")
+        else:
+            # Standard model upload (no GGUF files)
+            print("\n[cyan]Loading model...[/]")
+            model = AutoModelForCausalLM.from_pretrained(str(model_path))
+            tokenizer = AutoTokenizer.from_pretrained(str(model_path))
+            
+            print("[cyan]Uploading model...[/]")
+            model.push_to_hub(repo_id, private=private, token=token)
+            
+            print("[cyan]Uploading tokenizer...[/]")
+            tokenizer.push_to_hub(repo_id, private=private, token=token)
+            print("[green]✓ Model uploaded[/]")
+        
+        # Create model card if requested
+        if create_card:
+            try:
+                print("[cyan]Creating model card...[/]")
+                card = ModelCard.load(repo_id, token=token)
+                if not card.text or card.text.strip() == "":
+                    # Build GGUF section if files exist
+                    gguf_section = ""
+                    if gguf_files:
+                        gguf_list = "\n".join([f"- `{gguf.name}`" for gguf in gguf_files])
+                        gguf_section = f"""
+## GGUF Files
+
+This repository includes pre-quantized GGUF files for use with llama.cpp and other GGUF-compatible inference engines:
+
+{gguf_list}
+
+### Using GGUF Files
+
+```bash
+# Download a specific GGUF file
+huggingface-cli download {repo_id} {gguf_files[0].name}
+
+# Use with llama.cpp
+./llama.cpp/main -m {gguf_files[0].name} -p "Your prompt here"
+```
+"""
+                    
+                    card.text = f"""---
+tags:
+- text-generation
+- transformers
+- blasphemer{" " if not gguf_files else ""}
+{"- gguf" if gguf_files else ""}
+license: other
+---
+
+# {model_path.name}
+
+This model was uploaded using [Blasphemer](https://github.com/sunkencity999/blasphemer).
+
+## Model Details
+
+- **Base Model**: {model_path.name}
+- **Upload Date**: {time.strftime("%Y-%m-%d")}
+- **Uploaded by**: {user['name']}
+{f"- **GGUF Files**: {len(gguf_files)} quantized versions included" if gguf_files else ""}
+
+## Usage
+
+### Transformers (PyTorch)
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained("{repo_id}")
+tokenizer = AutoTokenizer.from_pretrained("{repo_id}")
+
+# Generate text
+prompt = "Your prompt here"
+inputs = tokenizer(prompt, return_tensors="pt")
+outputs = model.generate(**inputs, max_length=100)
+print(tokenizer.decode(outputs[0]))
+```
+{gguf_section}
+## Citation
+
+If you use this model, please cite:
+
+```
+@software{{blasphemer2025,
+  author = {{Bradford, Christopher}},
+  title = {{Blasphemer: Advanced Model Modification Toolkit}},
+  year = {{2025}},
+  url = {{https://github.com/sunkencity999/blasphemer}}
+}}
+```
+"""
+                    card.push_to_hub(repo_id, token=token)
+                    print("[green]✓ Model card created[/]")
+            except Exception as card_error:
+                print(f"[yellow]Warning: Could not create model card: {card_error}[/]")
+        
+        print(f"\n[bold green]✓ Model uploaded to {repo_id}[/]")
+        print(f"View at: [blue underline]https://huggingface.co/{repo_id}[/]")
+        
+    except Exception as e:
+        print(f"[red]Error uploading model: {e}[/]")
+        import traceback
+        traceback.print_exc()
+
+
+def finetune_model(settings: Settings) -> None:
+    """
+    Run fine-tuning on an existing model (without abliteration).
+    
+    Args:
+        settings: Application settings
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from .finetuner import FineTuner
+    
+    print(f"\n[bold cyan]Fine-Tuning Mode[/]")
+    print("=" * 80)
+    print(f"Model: {settings.model}")
+    print(f"Dataset: {settings.fine_tune_dataset}")
+    print()
+    
+    # Ask for output directory
+    default_output = str(Path(settings.finetuning_output_dir) / Path(settings.model).name)
+    output_dir = questionary.text(
+        "Output directory for fine-tuned model:",
+        default=default_output,
+    ).ask()
+    
+    if not output_dir:
+        print("[yellow]Fine-tuning cancelled[/]")
+        return
+    
+    # Update settings with user's output choice
+    settings.finetuning_output_dir = output_dir
+    
+    # Load model
+    print("[cyan]Loading model...[/]")
+    model = AutoModelForCausalLM.from_pretrained(
+        settings.model,
+        trust_remote_code=True,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(settings.model)
+    print("[green]✓ Model loaded[/]")
+    
+    # Create fine-tuner
+    finetuner = FineTuner(
+        model=model,
+        tokenizer=tokenizer,
+        settings=settings,
+    )
+    
+    # Run fine-tuning
+    result_path = finetuner.run(
+        dataset_source=settings.fine_tune_dataset,
+        preview_data=True,
+    )
+    
+    if result_path:
+        print(f"\n[bold green]✓ Fine-tuning complete![/]")
+        print(f"  Output: {result_path}")
+        
+        # Ask if user wants to upload
+        upload = questionary.confirm(
+            "Would you like to upload the fine-tuned model to Hugging Face?",
+            default=False,
+        ).ask()
+        
+        if upload:
+            upload_model_to_huggingface(
+                model_path=result_path,
+                model_name=Path(settings.model).name,
+            )
+
+
 def run():
     # Modified "Pagga" font from https://budavariam.github.io/asciiart-text/
     print(f"[cyan]█▀▄░█░░░█▀█░█▀▀░█▀█░█░█░█▀▀░█▄█░█▀▀░█▀▄[/]  v{version('blasphemer')}")
@@ -121,6 +494,78 @@ def run():
     # Silence the warning about multivariate TPE being experimental.
     warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
+    # Offer standalone upload option if no specific mode requested
+    if not settings.fine_tune_only and not settings.fine_tune_dataset:
+        # Check if user just wants to upload a model
+        action = questionary.select(
+            "What would you like to do?",
+            choices=[
+                "Process a model (abliteration/fine-tuning)",
+                "Upload a model to HuggingFace",
+                "Exit",
+            ],
+            style=Style([("highlighted", "reverse")]),
+        ).ask()
+        
+        if action == "Upload a model to HuggingFace":
+            interactive_model_upload()
+            return
+        elif action == "Exit":
+            print("[cyan]Goodbye![/]")
+            return
+        # If "Process a model" selected, continue to normal flow
+
+    # Check for fine-tune only mode
+    if settings.fine_tune_only:
+        if not settings.fine_tune_dataset:
+            print("[red]Error: --fine-tune-dataset is required when using --fine-tune-only[/]")
+            return
+        finetune_model(settings)
+        return
+    
+    # Check if model is a local path (expand and validate first)
+    if settings.model:
+        # Expand user paths and make absolute
+        import os
+        expanded_path = os.path.expanduser(settings.model)
+        expanded_path = os.path.abspath(expanded_path)
+        model_path = Path(expanded_path)
+        
+        # Check if it's a local model directory
+        if model_path.exists() and (model_path / "config.json").exists():
+            # Update settings to use absolute path
+            settings.model = str(model_path)
+            
+            # Only show menu if not in fine-tune-only mode
+            if not settings.fine_tune_only:
+                action = questionary.select(
+                    f"What would you like to do with {model_path.name}?",
+                    choices=[
+                        "Abliterate (remove censorship)",
+                        "Fine-tune with LoRA",
+                        "Upload to Hugging Face",
+                    ],
+                    style=Style([("highlighted", "reverse")]),
+                ).ask()
+                
+                if action == "Fine-tune with LoRA":
+                    # Get dataset
+                    dataset_path = questionary.text(
+                        "Path to fine-tuning dataset (directory, PDF, or HF dataset name):",
+                    ).ask()
+                    if dataset_path:
+                        settings.fine_tune_dataset = dataset_path
+                        settings.fine_tune_only = True
+                        finetune_model(settings)
+                    return
+                elif action == "Upload to Hugging Face":
+                    upload_model_to_huggingface(
+                        model_path=str(model_path),
+                        model_name=model_path.name,
+                    )
+                    return
+                # If "Abliterate" selected, continue to normal flow
+    
     model = Model(settings)
 
     print()
@@ -468,14 +913,27 @@ def run():
 
         while True:
             print()
+            
+            # Build menu choices
+            menu_choices = [
+                "Save the model to a local folder",
+                "Upload the model to Hugging Face",
+                "Upload a different model directory to Hugging Face",
+                "Upload any model (browse and discover)",
+            ]
+            
+            # Add fine-tuning option if dataset is configured
+            if settings.fine_tune_dataset:
+                menu_choices.insert(0, "Fine-tune with LoRA (knowledge injection)")
+            
+            menu_choices.extend([
+                "Chat with the model",
+                "Nothing (return to trial selection menu)",
+            ])
+            
             action = questionary.select(
                 "What do you want to do with the decensored model?",
-                choices=[
-                    "Save the model to a local folder",
-                    "Upload the model to Hugging Face",
-                    "Chat with the model",
-                    "Nothing (return to trial selection menu)",
-                ],
+                choices=menu_choices,
                 style=Style([("highlighted", "reverse")]),
             ).ask()
 
@@ -487,6 +945,69 @@ def run():
             # the optimized model.
             try:
                 match action:
+                    case "Fine-tune with LoRA (knowledge injection)":
+                        from .finetuner import FineTuner
+                        
+                        print("\n[bold cyan]Starting Fine-Tuning Process[/]")
+                        print("=" * 80)
+                        
+                        # Ask for output directory
+                        default_output = str(Path(settings.finetuning_output_dir) / f"{Path(settings.model).name}-finetuned")
+                        output_dir = questionary.text(
+                            "Output directory for fine-tuned model:",
+                            default=default_output,
+                        ).ask()
+                        
+                        if not output_dir:
+                            print("[yellow]Fine-tuning cancelled[/]")
+                            continue
+                        
+                        # Update settings with user's output choice
+                        original_output_dir = settings.finetuning_output_dir
+                        settings.finetuning_output_dir = output_dir
+                        
+                        # Create fine-tuner
+                        finetuner = FineTuner(
+                            model=model.model,
+                            tokenizer=model.tokenizer,
+                            settings=settings,
+                        )
+                        
+                        # Run fine-tuning
+                        result_path = finetuner.run(
+                            dataset_source=settings.fine_tune_dataset,
+                            preview_data=True,
+                        )
+                        
+                        # Restore original setting
+                        settings.finetuning_output_dir = original_output_dir
+                        
+                        if result_path:
+                            print(f"\n[bold green]✓ Fine-tuning complete![/]")
+                            print(f"  Output: {result_path}")
+                            
+                            # Ask if user wants to upload
+                            upload = questionary.confirm(
+                                "Would you like to upload the fine-tuned model to Hugging Face?",
+                                default=False,
+                            ).ask()
+                            
+                            if upload:
+                                upload_model_to_huggingface(
+                                    model_path=result_path,
+                                    model_name=Path(settings.model).name,
+                                )
+                            
+                            # Update model reference if merged
+                            if settings.merge_lora:
+                                # Reload merged model
+                                from transformers import AutoModelForCausalLM, AutoTokenizer
+                                
+                                print("\n[cyan]Reloading merged model...[/]")
+                                model.model = AutoModelForCausalLM.from_pretrained(result_path)
+                                model.tokenizer = AutoTokenizer.from_pretrained(result_path)
+                                print("[green]✓ Merged model loaded[/]")
+                    
                     case "Save the model to a local folder":
                         save_directory = questionary.path("Path to the folder:").ask()
                         if not save_directory:
@@ -572,6 +1093,32 @@ def run():
                             card.push_to_hub(repo_id, token=token)
 
                         print(f"Model uploaded to [bold]{repo_id}[/].")
+
+                    case "Upload a different model directory to Hugging Face":
+                        # Ask for model directory path
+                        model_dir = questionary.path(
+                            "Path to the model directory:",
+                            only_directories=True,
+                        ).ask()
+                        
+                        if not model_dir:
+                            print("[yellow]Upload cancelled[/]")
+                            continue
+                        
+                        # Expand path
+                        import os
+                        model_dir = os.path.expanduser(model_dir)
+                        model_dir = os.path.abspath(model_dir)
+                        
+                        # Upload the model
+                        upload_model_to_huggingface(
+                            model_path=model_dir,
+                            model_name=Path(model_dir).name,
+                        )
+
+                    case "Upload any model (browse and discover)":
+                        # Use interactive model discovery and upload
+                        interactive_model_upload()
 
                     case "Chat with the model":
                         print()

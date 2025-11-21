@@ -48,4 +48,13 @@ uncensoredModels/
 PERFORMANCE_ANALYSIS.md
 PHASE1_IMPLEMENTATION.md
 QUICKSTART_PHASE1.md
+FINETUNING_DESIGN.md
 test_phase1.py
+test_finetuning.py
+
+# Test data and outputs
+test-knowledge/
+.test_finetuning_output/
+
+# Fine-tuning outputs
+.blasphemer_finetuning/

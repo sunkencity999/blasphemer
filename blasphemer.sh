@@ -542,10 +542,11 @@ select_operation() {
     print_option "4" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
     print_option "5" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
     print_option "6" "View help and documentation" >&2
-    print_option "7" "Exit" >&2
+    print_option "7" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
+    print_option "8" "Exit" >&2
     echo "" >&2
     
-    local choice=$(read_choice "Enter your choice (1-7):" 7)
+    local choice=$(read_choice "Enter your choice (1-8):" 8)
     printf "%s" "$choice"
 }
 
@@ -761,6 +762,35 @@ resume_processing() {
     blasphemer --model "$model_name" --resume true
 }
 
+upload_model() {
+    print_banner
+    print_header "Upload Model to HuggingFace"
+    
+    print_info "This will use Blasphemer's interactive model upload feature"
+    echo ""
+    print_info "You'll be able to:"
+    echo "  • Browse directories for models"
+    echo "  • Select from discovered models"
+    echo "  • Create automatic model cards"
+    echo "  • Upload to HuggingFace Hub"
+    echo ""
+    
+    local confirm=$(read_yes_no "Start interactive upload?" "y")
+    
+    if [[ "$confirm" != "y" ]]; then
+        print_info "Operation cancelled"
+        return 0
+    fi
+    
+    echo ""
+    print_info "Starting interactive upload..."
+    echo ""
+    sleep 1
+    
+    # Use Python to run the interactive upload
+    python3 -c "from heretic.main import interactive_model_upload; interactive_model_upload()"
+}
+
 show_help() {
     print_banner
     print_header "Help & Documentation"
@@ -770,6 +800,7 @@ show_help() {
     echo "  ${BOLD}USER_GUIDE.md${NC} - Complete user guide"
     echo "  ${BOLD}README.md${NC} - Project overview and quick start"
     echo "  ${BOLD}config.default.toml${NC} - Configuration reference"
+    echo "  ${BOLD}UPLOAD_GUIDE.md${NC} - Model upload guide"
     echo ""
     echo "Quick commands:"
     echo ""
@@ -787,6 +818,9 @@ show_help() {
     echo ""
     echo "  ${DIM}Convert to GGUF:${NC}"
     echo "    ./convert-to-gguf.sh ~/models/model-name"
+    echo ""
+    echo "  ${DIM}Upload a model:${NC}"
+    echo "    ./blasphemer.sh → Option 7"
     echo ""
     
     read -p "Press Enter to continue..."
@@ -820,7 +854,8 @@ main() {
             4) resume_processing ;;
             5) manage_checkpoints ;;
             6) show_help ;;
-            7)
+            7) upload_model ;;
+            8)
                 echo ""
                 print_success "Thank you for using Blasphemer!"
                 echo ""

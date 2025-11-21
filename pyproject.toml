@@ -1,7 +1,7 @@
 [project]
 name = "blasphemer"
-version = "1.0.1.post1"
-description = "Enhanced fork of Heretic optimized for macOS (Apple Silicon) with checkpoint system and LM Studio integration"
+version = "1.2.0"
+description = "Enhanced fork of Heretic optimized for macOS (Apple Silicon) with performance optimizations, checkpoint system, LoRA fine-tuning, and LM Studio integration"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 authors = [
@@ -30,12 +30,15 @@ dependencies = [
     "hf-transfer>=0.1.9",
     "huggingface-hub>=0.34.4",
     "optuna>=4.5.0",
+    "peft>=0.14.0",
     "protobuf>=3.20.0",
     "pydantic-settings>=2.10.1",
+    "PyPDF2>=3.0.0",
     "questionary>=2.1.1",
     "rich>=14.1.0",
     "sentencepiece>=0.1.99",
     "transformers>=4.55.2",
+    "trl>=0.13.0",
 ]
 
 [project.optional-dependencies]

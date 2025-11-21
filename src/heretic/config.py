@@ -168,6 +168,117 @@ class Settings(BaseSettings):
         description="Dataset of prompts that tend to result in refusals (used for evaluating model performance).",
     )
 
+    # Fine-tuning configuration
+    enable_finetuning: bool = Field(
+        default=False,
+        description="Enable LoRA fine-tuning after abliteration.",
+    )
+
+    fine_tune_dataset: str = Field(
+        default="",
+        description="Path to dataset for fine-tuning (directory, file, or HuggingFace dataset name).",
+    )
+
+    fine_tune_only: bool = Field(
+        default=False,
+        description="Skip abliteration and only fine-tune the base model.",
+    )
+
+    # LoRA configuration
+    lora_rank: int = Field(
+        default=16,
+        description="LoRA rank (r). Higher = more parameters but better quality. Typical: 8-64.",
+    )
+
+    lora_alpha: int = Field(
+        default=32,
+        description="LoRA alpha scaling factor. Typically 2x rank.",
+    )
+
+    lora_dropout: float = Field(
+        default=0.05,
+        description="Dropout rate for LoRA layers.",
+    )
+
+    lora_target_modules: list[str] = Field(
+        default=["q_proj", "k_proj", "v_proj", "o_proj"],
+        description="Model modules to apply LoRA to. Typically attention layers.",
+    )
+
+    # Training hyperparameters
+    learning_rate: float = Field(
+        default=2e-4,
+        description="Learning rate for fine-tuning. 2e-4 is standard for LoRA.",
+    )
+
+    num_train_epochs: int = Field(
+        default=3,
+        description="Number of training epochs.",
+    )
+
+    per_device_train_batch_size: int = Field(
+        default=4,
+        description="Batch size per device during training.",
+    )
+
+    per_device_eval_batch_size: int = Field(
+        default=4,
+        description="Batch size per device during evaluation.",
+    )
+
+    gradient_accumulation_steps: int = Field(
+        default=8,
+        description="Number of gradient accumulation steps (effective batch size = batch_size * this).",
+    )
+
+    warmup_ratio: float = Field(
+        default=0.1,
+        description="Ratio of total steps used for learning rate warmup.",
+    )
+
+    max_seq_length: int = Field(
+        default=2048,
+        description="Maximum sequence length for training.",
+    )
+
+    # Dataset processing
+    chunk_size: int = Field(
+        default=1024,
+        description="Token chunk size for splitting long documents.",
+    )
+
+    chunk_overlap: int = Field(
+        default=128,
+        description="Overlap between chunks to preserve context.",
+    )
+
+    # Checkpointing
+    save_steps: int = Field(
+        default=100,
+        description="Save checkpoint every N steps.",
+    )
+
+    save_total_limit: int = Field(
+        default=3,
+        description="Maximum number of checkpoints to keep.",
+    )
+
+    finetuning_output_dir: str = Field(
+        default=".blasphemer_finetuning",
+        description="Directory for fine-tuning checkpoints and output.",
+    )
+
+    # Post-training options
+    merge_lora: bool = Field(
+        default=True,
+        description="Merge LoRA weights into base model after training.",
+    )
+
+    test_after_training: bool = Field(
+        default=True,
+        description="Test model knowledge with sample prompts after training.",
+    )
+
     # "Model" refers to the Pydantic model of the settings class here,
     # not to the language model. The field must have this exact name.
     model_config = SettingsConfigDict(

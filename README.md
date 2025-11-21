@@ -1,12 +1,12 @@
 # Blasphemer
 
-**Enhanced fork of Heretic optimized for macOS (Apple Silicon) - 55% faster with advanced performance optimizations.**
+**Enhanced fork of Heretic optimized for macOS (Apple Silicon) - 55% faster with LoRA fine-tuning and advanced optimizations.**
 
 Developed by **Christopher Bradford** ([@sunkencity999](https://github.com/sunkencity999))
 
-Blasphemer removes censorship from transformer-based language models without expensive post-training, featuring automatic checkpoint/resume capabilities, streamlined GGUF conversion, and high-performance optimizations that reduce abliteration time by 55%.
+Blasphemer removes censorship from transformer-based language models without expensive post-training, featuring automatic checkpoint/resume capabilities, LoRA fine-tuning for knowledge injection, streamlined GGUF conversion, and high-performance optimizations that reduce abliteration time by 55%.
 
-**📚 New to abliteration?** Read [LEARN.md](LEARN.md) - a comprehensive guide from beginner to expert!
+**📚 New to abliteration?** Read [LEARN.md](docs/LEARN.md) - a comprehensive guide from beginner to expert!
 
 ## What Makes Blasphemer Different
 
@@ -14,6 +14,7 @@ Blasphemer builds on [Heretic v1.0.1](https://github.com/p-e-w/heretic) with cri
 
 ### Key Enhancements
 
+- **LoRA Fine-Tuning**: Train models on your custom knowledge (PDFs, text files, HuggingFace datasets) after abliteration
 - **High-Performance Optimizations**: 55% faster abliteration with weight cloning, fast refusal detection, and torch.compile()
 - **Apple Silicon Support**: Native MPS GPU detection and optimized memory management
 - **Enhanced Observability**: Real-time quality metrics, trend analysis, and outcome predictions during optimization
@@ -30,7 +31,32 @@ Blasphemer builds on [Heretic v1.0.1](https://github.com/p-e-w/heretic) with cri
 - **Fast refusal detection** - 5x fewer tokens generated
 - **torch.compile()** - 20-30% inference speedup on Apple Silicon (Python <3.14)
 
-See [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) for detailed benchmarks.
+See [PERFORMANCE_ANALYSIS.md](docs/PERFORMANCE_ANALYSIS.md) for detailed benchmarks.
+
+### LoRA Fine-Tuning
+
+**📖 Train models on your custom knowledge after abliteration:**
+- **PDF documents** - Extract and train on PDF content
+- **Text files** - Use .txt, .md files directly
+- **Directories** - Process entire folder trees
+- **HuggingFace datasets** - Leverage existing datasets
+- **Efficient LoRA** - Fast training, small adapters (50-500MB)
+- **Automatic merge** - Ready for GGUF export
+
+```bash
+# Abliterate + Fine-tune in one workflow
+blasphemer meta-llama/Llama-3.1-8B-Instruct \
+  --fine-tune-dataset ./my-documents/
+
+# Fine-tune only (skip abliteration)
+blasphemer model-name \
+  --fine-tune-only \
+  --fine-tune-dataset ./knowledge-base/
+```
+
+**Result:** Uncensored model trained on your specific domain knowledge.
+
+See [FINETUNING.md](docs/FINETUNING.md) for complete guide with examples.
 
 ### New Features
 
@@ -103,7 +129,7 @@ blasphemer.sh
 - Easy updates with `brew upgrade`
 - Clean uninstall with `brew uninstall`
 
-See [HOMEBREW.md](HOMEBREW.md) for detailed Homebrew documentation.
+See [HOMEBREW.md](docs/HOMEBREW.md) for detailed Homebrew documentation.
 
 #### Automated Install Script
 
@@ -194,8 +220,8 @@ blasphemer microsoft/Phi-3-mini-4k-instruct
 
 ## Documentation
 
-**Complete User Guide**: [USER_GUIDE.md](USER_GUIDE.md)  
-**Deep Learning Guide**: [LEARN.md](LEARN.md) ⭐ **NEW!**
+**Complete User Guide**: [USER_GUIDE.md](docs/USER_GUIDE.md)  
+**Deep Learning Guide**: [LEARN.md](docs/LEARN.md) ⭐ **NEW!**
 
 ### USER_GUIDE.md - Practical Usage
 
@@ -294,7 +320,7 @@ pytest tests/ --cov=src/heretic --cov-report=html
 ✅ Shell scripts validated for syntax and branding
 ```
 
-See [USER_GUIDE.md](USER_GUIDE.md) for detailed testing documentation.
+See [USER_GUIDE.md](docs/USER_GUIDE.md) for detailed testing documentation.
 
 ## Checkpoint System
 
@@ -381,7 +407,7 @@ blasphemer mistralai/Mistral-7B-Instruct-v0.3
 - Models > 70B parameters - require substantial resources
 - SSMs/hybrid models (Mamba, etc.) - not supported by Heretic/Blasphemer
 
-See [USER_GUIDE.md](USER_GUIDE.md) for complete model recommendations.
+See [USER_GUIDE.md](docs/USER_GUIDE.md) for complete model recommendations.
 
 ## Configuration
 
@@ -426,7 +452,7 @@ compile_model = true  # 20-30% inference speedup
 refusal_detection_tokens = 20  # 5x faster refusal detection
 ```
 
-See [USER_GUIDE.md](USER_GUIDE.md) for all configuration options.
+See [USER_GUIDE.md](docs/USER_GUIDE.md) for all configuration options.
 
 ## Apple Silicon Optimizations
 
@@ -571,7 +597,7 @@ Expected timings on Apple Silicon M2:
 | Llama-3.1-8B (7B) | ~180 min | ~80 min | **55% faster** |
 | Mistral-7B | ~180 min | ~80 min | **55% faster** |
 
-See [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) and [QUICKSTART_PHASE1.md](QUICKSTART_PHASE1.md) for details.
+See [PERFORMANCE_ANALYSIS.md](docs/PERFORMANCE_ANALYSIS.md) and [QUICKSTART_PHASE1.md](docs/QUICKSTART_PHASE1.md) for details.
 
 ## Troubleshooting
 
@@ -608,9 +634,22 @@ See [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) and [QUICKSTART_PHASE1.md
 - You still get 40%+ speedup from weight cloning and fast refusal detection
 - To silence the message: `--compile-model false` or downgrade to Python 3.13
 
-See [USER_GUIDE.md](USER_GUIDE.md) for complete troubleshooting guide.
+See [USER_GUIDE.md](docs/USER_GUIDE.md) for complete troubleshooting guide.
 
 ## Version History
+
+### v1.2.0 (LoRA Fine-Tuning Release)
+
+**Major New Feature - Knowledge Injection:**
+- LoRA fine-tuning for custom knowledge training
+- Support for PDFs, text files, directories, HuggingFace datasets
+- Automatic dataset processing and chunking
+- Efficient training (12-16GB RAM, 10-120 min depending on data)
+- Automatic LoRA merge for GGUF export
+- Interactive menu integration
+- Comprehensive documentation (FINETUNING.md)
+
+**Workflow:** Abliterate → Fine-tune → Export → Use in LM Studio
 
 ### v1.1.0 (Performance Update)
 

@@ -105,3 +105,92 @@ column = "text"
 dataset = "mlabonne/harmful_behaviors"
 split = "test[:100]"
 column = "text"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Fine-Tuning Configuration
+# ════════════════════════════════════════════════════════════════════════════════
+
+# Enable LoRA fine-tuning after abliteration (knowledge injection)
+enable_finetuning = false
+
+# Path to dataset for fine-tuning (directory with PDFs/txt files, single file, or HuggingFace dataset name)
+# Example: "./my-documents/" or "mlabonne/guanaco-llama2-1k" or "./my-knowledge.pdf"
+fine_tune_dataset = ""
+
+# Skip abliteration and only fine-tune the base model
+fine_tune_only = false
+
+# ────────────────────────────────────────────────────────────────────────────────
+# LoRA Configuration
+# ────────────────────────────────────────────────────────────────────────────────
+
+# LoRA rank (r). Higher = more parameters but better quality. Range: 8-64, Recommended: 16
+lora_rank = 16
+
+# LoRA alpha scaling factor. Typically 2x the rank
+lora_alpha = 32
+
+# Dropout rate for LoRA layers
+lora_dropout = 0.05
+
+# Model modules to apply LoRA to (attention layers for most models)
+lora_target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Training Hyperparameters
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Learning rate for fine-tuning (2e-4 is standard for LoRA)
+learning_rate = 2e-4
+
+# Number of training epochs
+num_train_epochs = 3
+
+# Batch size per device during training
+per_device_train_batch_size = 4
+
+# Batch size per device during evaluation
+per_device_eval_batch_size = 4
+
+# Gradient accumulation steps (effective batch size = batch_size * gradient_accumulation_steps)
+# Effective batch size of 32 recommended (4 * 8 = 32)
+gradient_accumulation_steps = 8
+
+# Ratio of total steps used for learning rate warmup
+warmup_ratio = 0.1
+
+# Maximum sequence length for training
+max_seq_length = 2048
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Dataset Processing
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Token chunk size for splitting long documents
+chunk_size = 1024
+
+# Overlap between chunks to preserve context
+chunk_overlap = 128
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Checkpointing & Output
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Save checkpoint every N training steps
+save_steps = 100
+
+# Maximum number of checkpoints to keep (keeps best N by validation loss)
+save_total_limit = 3
+
+# Directory for fine-tuning checkpoints and output
+finetuning_output_dir = ".blasphemer_finetuning"
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Post-Training Options
+# ────────────────────────────────────────────────────────────────────────────────
+
+# Merge LoRA weights into base model after training (recommended for GGUF export)
+merge_lora = true
+
+# Test model knowledge with sample prompts after training
+test_after_training = true
