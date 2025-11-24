@@ -209,17 +209,18 @@ show_recommended_models() {
     printf "%b⭐ Highly Recommended (Best Success Rate):%b\n" "${BOLD}" "${NC}"
     printf "  • meta-llama/Llama-3.1-8B-Instruct (8B) - BEST CHOICE\n"
     printf "  • mistralai/Mistral-7B-Instruct-v0.3 (7B)\n"
-    printf "  • Qwen/Qwen2.5-7B-Instruct (7B)\n"
+    printf "  • Qwen/Qwen2.5-7B-Instruct (7B) - Auto-enhanced config\n"
     printf "\n"
     printf "%bGood Quality (60-90 minutes):%b\n" "${BOLD}" "${NC}"
     printf "  • meta-llama/Llama-3.1-8B-Instruct\n"
     printf "  • mistralai/Mistral-7B-Instruct-v0.3\n"
     printf "\n"
-    printf "%bHigh Quality (60-90+ minutes):%b\n" "${BOLD}" "${NC}"
-    printf "  • Qwen/Qwen2.5-14B-Instruct\n"
+    printf "%bHigh Quality (120-180 minutes with enhanced config):%b\n" "${BOLD}" "${NC}"
+    printf "  • Qwen/Qwen2.5-14B-Instruct - Auto-enhanced config\n"
     printf "  • meta-llama/Llama-3.1-70B-Instruct (requires 64GB+ RAM)\n"
     printf "\n"
-    print_info "See USER_GUIDE.md for complete model recommendations"
+    print_info "Qwen models automatically use enhanced configuration (400 trials)"
+    print_info "See docs/USER_GUIDE.md and docs/QWEN_ABLITERATION_GUIDE.md for details"
 }
 
 select_model() {
@@ -227,12 +228,13 @@ select_model() {
     
     echo "Choose an option:" >&2
     echo "" >&2
-    print_option "1" "Use a recommended model" >&2
-    print_option "2" "Enter a custom model name" >&2
-    print_option "3" "Show recommended models first" >&2
+    print_option "1" "Download from HuggingFace ${DIM}(recommended models)${NC}" >&2
+    print_option "2" "Use local model directory ${DIM}(already downloaded)${NC}" >&2
+    print_option "3" "Enter custom model name/path" >&2
+    print_option "4" "Show recommended models" >&2
     echo "" >&2
     
-    local choice=$(read_choice "Enter your choice (1-3):" 3)
+    local choice=$(read_choice "Enter your choice (1-4):" 4)
     
     case $choice in
         1)
@@ -243,7 +245,7 @@ select_model() {
             print_option "2" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High success rate)${NC}" >&2
             print_option "3" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
             print_option "4" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
-            print_option "5" "Enter custom model" >&2
+            print_option "5" "Enter custom HuggingFace model" >&2
             echo "" >&2
             
             local model_choice=$(read_choice "Enter your choice (1-5):" 5)
@@ -253,17 +255,124 @@ select_model() {
                 2) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
                 3) printf "Qwen/Qwen2.5-7B-Instruct" ;;
                 4) printf "Qwen/Qwen2.5-14B-Instruct" ;;
-                5) read_text "Enter model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
+                5) read_text "Enter HuggingFace model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
             esac
             ;;
         2)
-            read_text "Enter model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" ""
+            # Browse for local model directory
+            echo "" >&2
+            print_info "Enter the path to your local model directory" >&2
+            print_info "The directory should contain model files (config.json, model.safetensors, etc.)" >&2
+            echo "" >&2
+            
+            # Suggest default model directory if it exists
+            if [[ -d "$DEFAULT_MODEL_DIR" ]]; then
+                print_info "Available models in $DEFAULT_MODEL_DIR:" >&2
+                echo "" >&2
+                local models=($(find "$DEFAULT_MODEL_DIR" -maxdepth 1 -type d -not -path "$DEFAULT_MODEL_DIR" 2>/dev/null | sort))
+                if [[ ${#models[@]} -gt 0 ]]; then
+                    for model_dir in "${models[@]}"; do
+                        local model_name=$(basename "$model_dir")
+                        # Check if it has config.json
+                        if [[ -f "$model_dir/config.json" ]]; then
+                            echo "  • $model_name ${GREEN}✓${NC}" >&2
+                        else
+                            echo "  • $model_name ${DIM}(no config.json)${NC}" >&2
+                        fi
+                    done
+                    echo "" >&2
+                fi
+            fi
+            
+            local model_path=$(read_text "Enter model directory path" "$HOME/")
+            # Expand tilde
+            model_path="${model_path/#\~/$HOME}"
+            # Remove trailing slash
+            model_path="${model_path%/}"
+            
+            # Verify the directory exists and has model files
+            if [[ ! -d "$model_path" ]]; then
+                print_error "Directory not found: $model_path" >&2
+                echo "" >&2
+                read -p "Press Enter to try again..." >&2
+                select_model
+                return
+            fi
+            
+            if [[ ! -f "$model_path/config.json" ]]; then
+                print_warning "Warning: No config.json found in $model_path" >&2
+                local confirm=$(read_yes_no "Continue anyway?" "n")
+                if [[ "$confirm" != "y" ]]; then
+                    select_model
+                    return
+                fi
+            fi
+            
+            printf "%s" "$model_path"
             ;;
         3)
+            read_text "Enter model name or path (e.g., meta-llama/Llama-3.1-8B-Instruct or ~/models/my-model)" ""
+            ;;
+        4)
             show_recommended_models
             echo ""
             read -p "Press Enter to continue..."
             select_model
+            ;;
+    esac
+}
+
+################################################################################
+# Model Configuration
+################################################################################
+
+is_qwen_model() {
+    local model_name="$1"
+    # Check if model name contains "Qwen" (case insensitive)
+    if [[ "$model_name" =~ [Qq]wen ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+select_optimization_level() {
+    local model_name="$1"
+    
+    print_header "Optimization Configuration" >&2
+    
+    if is_qwen_model "$model_name"; then
+        print_warning "Qwen model detected!" >&2
+        echo "" >&2
+        print_info "Qwen models often need enhanced abliteration settings." >&2
+        echo "" >&2
+    fi
+    
+    echo "Select optimization level:" >&2
+    echo "" >&2
+    print_option "1" "Standard ${DIM}200 trials, default config - for Llama/Mistral${NC}" >&2
+    print_option "2" "Enhanced ${DIM}400 trials, default config - for stubborn models${NC}" >&2
+    print_option "3" "Qwen-Optimized ${DIM}400 trials, Qwen config - for Qwen-based models${NC}" >&2
+    echo "" >&2
+    
+    if is_qwen_model "$model_name"; then
+        print_info "Recommended: Option 3 (Qwen-Optimized)" >&2
+    else
+        print_info "Recommended: Option 1 (Standard) for most models" >&2
+    fi
+    echo "" >&2
+    
+    local choice=$(read_choice "Enter your choice (1-3):" 3)
+    
+    case $choice in
+        1) 
+            printf "standard"
+            ;;
+        2) 
+            printf "enhanced"
+            ;;
+        3)
+            printf "qwen"
             ;;
     esac
 }
@@ -571,16 +680,39 @@ process_new_model() {
     
     print_success "Selected model: $model_name"
     
+    # Optimization level selection (Qwen detection)
+    local opt_level=$(select_optimization_level "$model_name")
+    
+    # Set trials and config based on optimization level
+    local n_trials
+    local config_file=""
+    case "$opt_level" in
+        standard)
+            n_trials=200
+            print_success "Using standard optimization (200 trials)"
+            ;;
+        enhanced)
+            n_trials=400
+            print_success "Using enhanced optimization (400 trials)"
+            ;;
+        qwen)
+            n_trials=400
+            config_file="config.qwen.toml"
+            print_success "Using Qwen-optimized configuration (400 trials + Qwen config)"
+            ;;
+    esac
+    
     # Save location
     local save_path=$(select_save_location "$model_name")
     print_success "Save location: $save_path"
     
-    # Advanced options
-    print_info "Configuring advanced options..."
-    local options=$(configure_advanced_options)
-    local n_trials=$(echo "$options" | sed -n '1p')
-    local batch_size=$(echo "$options" | sed -n '2p')
-    local resume=$(echo "$options" | sed -n '3p')
+    # Batch size
+    echo ""
+    local batch_size=$(read_text "Batch size (0 for auto-detect)" "0")
+    
+    # Resume option
+    echo ""
+    local resume=$(read_yes_no "Resume from checkpoint if available?" "n")
     
     # Quantization
     local quant_type=$(select_quantization)
@@ -589,7 +721,11 @@ process_new_model() {
     print_header "Processing Summary"
     printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
     printf "%bSave to:%b %s\n" "${BOLD}" "${NC}" "$save_path"
+    printf "%bOptimization:%b %s\n" "${BOLD}" "${NC}" "$opt_level"
     printf "%bTrials:%b %s\n" "${BOLD}" "${NC}" "$n_trials"
+    if [[ -n "$config_file" ]]; then
+        printf "%bConfig:%b %s\n" "${BOLD}" "${NC}" "$config_file"
+    fi
     printf "%bBatch size:%b %s\n" "${BOLD}" "${NC}" "$([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
     printf "%bQuantization:%b %s\n" "${BOLD}" "${NC}" "$quant_type"
     printf "\n"
@@ -599,6 +735,19 @@ process_new_model() {
     if [[ "$confirm" != "y" ]]; then
         print_info "Operation cancelled"
         return 0
+    fi
+    
+    # Handle config file - blasphemer reads from config.toml by default
+    local config_backup=""
+    if [[ -n "$config_file" ]]; then
+        print_info "Setting up $config_file as active configuration..."
+        # Backup existing config.toml if it exists
+        if [[ -f "config.toml" ]]; then
+            config_backup="config.toml.backup.$$"
+            cp config.toml "$config_backup"
+        fi
+        # Copy Qwen config to config.toml
+        cp "$config_file" config.toml
     fi
     
     # Build command
@@ -614,6 +763,9 @@ process_new_model() {
     
     print_header "Processing Model"
     print_info "Command: $cmd"
+    if [[ -n "$config_file" ]]; then
+        print_info "Using configuration: $config_file"
+    fi
     echo ""
     print_info "This will take some time. You can press Ctrl+C to interrupt safely."
     print_info "Progress is automatically checkpointed every trial."
@@ -621,11 +773,24 @@ process_new_model() {
     sleep 2
     
     # Run blasphemer
-    eval $cmd || {
+    local exit_code=0
+    eval $cmd || exit_code=$?
+    
+    # Restore original config if we made a backup
+    if [[ -n "$config_backup" ]]; then
+        mv "$config_backup" config.toml
+        print_info "Restored original config.toml"
+    elif [[ -n "$config_file" ]] && [[ -f "config.toml" ]]; then
+        rm config.toml
+        print_info "Removed temporary config.toml"
+    fi
+    
+    # Check if command failed
+    if [[ $exit_code -ne 0 ]]; then
         print_error "Processing failed or was interrupted"
         print_info "You can resume with the 'Resume interrupted processing' option"
         return 1
-    }
+    fi
     
     # Note: User will interactively save the model through Blasphemer's prompts
     # We need to ask them where they saved it
@@ -651,14 +816,43 @@ process_model_only() {
     local model_name=$(select_model)
     print_success "Selected model: $model_name"
     
-    local options=$(configure_advanced_options)
-    local n_trials=$(echo "$options" | sed -n '1p')
-    local batch_size=$(echo "$options" | sed -n '2p')
-    local resume=$(echo "$options" | sed -n '3p')
+    # Optimization level selection (Qwen detection)
+    local opt_level=$(select_optimization_level "$model_name")
+    
+    # Set trials and config based on optimization level
+    local n_trials
+    local config_file=""
+    case "$opt_level" in
+        standard)
+            n_trials=200
+            print_success "Using standard optimization (200 trials)"
+            ;;
+        enhanced)
+            n_trials=400
+            print_success "Using enhanced optimization (400 trials)"
+            ;;
+        qwen)
+            n_trials=400
+            config_file="config.qwen.toml"
+            print_success "Using Qwen-optimized configuration (400 trials + Qwen config)"
+            ;;
+    esac
+    
+    # Batch size
+    echo ""
+    local batch_size=$(read_text "Batch size (0 for auto-detect)" "0")
+    
+    # Resume option
+    echo ""
+    local resume=$(read_yes_no "Resume from checkpoint if available?" "n")
     
     print_header "Processing Summary"
     printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
+    printf "%bOptimization:%b %s\n" "${BOLD}" "${NC}" "$opt_level"
     printf "%bTrials:%b %s\n" "${BOLD}" "${NC}" "$n_trials"
+    if [[ -n "$config_file" ]]; then
+        printf "%bConfig:%b %s\n" "${BOLD}" "${NC}" "$config_file"
+    fi
     printf "%bBatch size:%b %s\n" "${BOLD}" "${NC}" "$([ "$batch_size" -eq 0 ] && echo "Auto" || echo "$batch_size")"
     printf "\n"
     
@@ -667,6 +861,19 @@ process_model_only() {
     if [[ "$confirm" != "y" ]]; then
         print_info "Operation cancelled"
         return 0
+    fi
+    
+    # Handle config file - blasphemer reads from config.toml by default
+    local config_backup=""
+    if [[ -n "$config_file" ]]; then
+        print_info "Setting up $config_file as active configuration..."
+        # Backup existing config.toml if it exists
+        if [[ -f "config.toml" ]]; then
+            config_backup="config.toml.backup.$$"
+            cp config.toml "$config_backup"
+        fi
+        # Copy Qwen config to config.toml
+        cp "$config_file" config.toml
     fi
     
     local cmd="blasphemer --model '$model_name' --n-trials $n_trials"
@@ -681,9 +888,24 @@ process_model_only() {
     
     print_header "Processing Model"
     print_info "Command: $cmd"
+    if [[ -n "$config_file" ]]; then
+        print_info "Using configuration: $config_file"
+    fi
     echo ""
     
     eval $cmd
+    local exit_code=$?
+    
+    # Restore original config if we made a backup
+    if [[ -n "$config_backup" ]]; then
+        mv "$config_backup" config.toml
+        print_info "Restored original config.toml"
+    elif [[ -n "$config_file" ]] && [[ -f "config.toml" ]]; then
+        rm config.toml
+        print_info "Removed temporary config.toml"
+    fi
+    
+    return $exit_code
 }
 
 convert_to_gguf() {

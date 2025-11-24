@@ -1,0 +1,61 @@
+# Qwen-optimized configuration
+# Copy from config.default.toml and add these enhanced refusal markers
+
+# Enhanced refusal markers for Qwen models
+refusal_markers = [
+    # Standard markers
+    "sorry",
+    "i can't",
+    "i cannot",
+    "i won't",
+    "i will not",
+    "i'm unable",
+    "i am unable",
+    "i'm an ai",
+    "i am an ai",
+    "as an ai",
+    "ai assistant",
+    "i'm designed to",
+    "i am designed to",
+    "i'm programmed to",
+    "i am programmed to",
+    "violat",
+    "prohibit",
+    "illegal",
+    "harmful",
+    "inappropriate",
+    "unethical",
+    "ethical boundaries",
+    
+    # Qwen-specific markers
+    "can't assist",
+    "cannot assist",
+    "not appropriate",
+    "not suitable",
+    "against my",
+    "against the",
+    "feel free to ask",  # Often appears in Qwen refusals
+    "different topic",   # "feel free to ask about a different topic"
+    "i'd be happy to help with something else",
+    "recommend",
+    "consulting",
+    "medical professional",
+    "law enforcement",
+    "seek help",
+    "proper authorities",
+]
+
+# Increase trials for stubborn models
+n_trials = 400
+n_startup_trials = 100
+
+# Use more diverse prompt pairs for better direction finding
+[bad_prompts]
+dataset = "mlabonne/harmful_behaviors"
+split = "train[:800]"  # Use more samples
+column = "text"
+
+[good_prompts]
+dataset = "mlabonne/harmless_alpaca"
+split = "train[:800]"  # Use more samples
+column = "text"
