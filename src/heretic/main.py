@@ -37,531 +37,18 @@ from heretic.evaluator import Evaluator
 from heretic.model import AbliterationParameters, Model
 from heretic.progress import ProgressTracker
 from heretic.utils import (
-    format_duration,
     get_readme_intro,
     get_trial_parameters,
     load_prompts,
     print,
 )
+from heretic.upload import (
+    interactive_model_upload,
+    upload_model_to_huggingface,
+)
 
 
-def discover_models_in_directory(search_path: str) -> dict:
-    """
-    Discover model directories (containing config.json) and GGUF files in the given path.
-    
-    Args:
-        search_path: Directory path to search
-        
-    Returns:
-        Dict with 'models' (list of directory Paths) and 'gguf_files' (list of file Paths)
-    """
-    import os
-    search_path = os.path.expanduser(search_path)
-    search_path = os.path.abspath(search_path)
-    base_path = Path(search_path)
-    
-    if not base_path.exists():
-        return {"models": [], "gguf_files": []}
-    
-    models = []
-    gguf_files = []
-    
-    # Check if the path itself is a model directory
-    if (base_path / "config.json").exists():
-        models.append(base_path)
-        # Also check for GGUF files in this directory
-        try:
-            gguf_files.extend(base_path.glob("*.gguf"))
-        except PermissionError:
-            pass
-        return {"models": sorted(models, key=lambda p: p.name), 
-                "gguf_files": sorted(gguf_files, key=lambda p: p.name)}
-    
-    # Search subdirectories and files (one level deep)
-    try:
-        for item in base_path.iterdir():
-            if item.is_dir() and (item / "config.json").exists():
-                models.append(item)
-            elif item.is_file() and item.suffix == ".gguf":
-                gguf_files.append(item)
-    except PermissionError:
-        pass
-    
-    return {
-        "models": sorted(models, key=lambda p: p.name),
-        "gguf_files": sorted(gguf_files, key=lambda p: p.name)
-    }
 
-
-def interactive_model_upload() -> None:
-    """
-    Interactive workflow to discover and upload models to HuggingFace.
-    """
-    print(f"\n[bold cyan]Upload Model to Hugging Face[/]")
-    print("=" * 80)
-    print("This will help you upload a model to HuggingFace Hub.")
-    print()
-    
-    # Ask for search path
-    search_path = questionary.path(
-        "Enter directory to search for models (or direct model path):",
-        only_directories=True,
-    ).ask()
-    
-    if not search_path:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    # Discover models and GGUF files
-    print("\n[cyan]Searching for models and GGUF files...[/]")
-    discovery = discover_models_in_directory(search_path)
-    models = discovery["models"]
-    gguf_files = discovery["gguf_files"]
-    
-    if not models and not gguf_files:
-        print(f"[yellow]No models or GGUF files found in {search_path}[/]")
-        print("[dim]Models must contain a config.json file, or be .gguf files.[/]")
-        return
-    
-    # Build selection list
-    all_choices = []
-    choice_map = {}  # Map choice string to (type, path)
-    
-    # Add model directories
-    if models:
-        print(f"[green]Found {len(models)} model directory(ies):[/]")
-        for model in models:
-            choice_text = f"📁 {model.name} [Model Directory]"
-            all_choices.append(choice_text)
-            choice_map[choice_text] = ("model", model)
-    
-    # Add GGUF files
-    if gguf_files:
-        print(f"[green]Found {len(gguf_files)} GGUF file(s):[/]")
-        for gguf in gguf_files:
-            choice_text = f"📦 {gguf.name} [GGUF]"
-            all_choices.append(choice_text)
-            choice_map[choice_text] = ("gguf", gguf)
-    
-    print()
-    
-    # Let user select what to upload
-    selected = questionary.select(
-        "Select item to upload:",
-        choices=all_choices,
-        style=Style([("highlighted", "reverse")]),
-    ).ask()
-    
-    if not selected:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    # Get the selected item type and path
-    item_type, item_path = choice_map[selected]
-    
-    # Upload based on type
-    if item_type == "model":
-        upload_model_to_huggingface(
-            model_path=str(item_path),
-            model_name=item_path.name,
-        )
-    elif item_type == "gguf":
-        upload_gguf_to_huggingface(
-            gguf_path=str(item_path),
-        )
-
-
-def upload_model_to_huggingface(
-    model_path: str,
-    model_name: str = None,
-    token: str = None,
-) -> None:
-    """
-    Upload a model directory to HuggingFace Hub.
-    
-    Args:
-        model_path: Path to the model directory
-        model_name: Optional model name (for default repo name)
-        token: Optional HF token (will prompt if not provided)
-    """
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    
-    model_path = Path(model_path)
-    if not model_path.exists():
-        print(f"[red]Error: Model path does not exist: {model_path}[/]")
-        return
-    
-    print(f"\n[bold cyan]Uploading Model to Hugging Face[/]")
-    print("=" * 80)
-    print(f"Model path: {model_path}")
-    print()
-    
-    # Get token
-    if not token:
-        token = huggingface_hub.get_token()
-    if not token:
-        token = questionary.password("Hugging Face access token:").ask()
-    if not token:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    # Get user info
-    try:
-        user = huggingface_hub.whoami(token)
-        print(f"Logged in as [bold]{user['fullname']} ({user['email']})[/]")
-    except Exception as e:
-        print(f"[red]Error: Invalid token or connection failed: {e}[/]")
-        return
-    
-    # Get repo name
-    default_name = model_name or model_path.name
-    repo_id = questionary.text(
-        "Name of repository:",
-        default=f"{user['name']}/{default_name}",
-    ).ask()
-    
-    if not repo_id:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    # Get visibility
-    visibility = questionary.select(
-        "Should the repository be public or private?",
-        choices=["Public", "Private"],
-        style=Style([("highlighted", "reverse")]),
-    ).ask()
-    private = visibility == "Private"
-    
-    # Ask about model card
-    create_card = questionary.confirm(
-        "Would you like to create a model card?",
-        default=True,
-    ).ask()
-    
-    # Check for GGUF files
-    gguf_files = list(model_path.glob("*.gguf"))
-    
-    # Load and upload model
-    try:
-        # If there are GGUF files, upload entire directory to preserve them
-        if gguf_files:
-            print(f"\n[cyan]Found {len(gguf_files)} GGUF file(s) - uploading entire directory...[/]")
-            for gguf in gguf_files:
-                print(f"  • {gguf.name}")
-            print()
-            
-            # Create repository first
-            from huggingface_hub import HfApi, upload_folder
-            api = HfApi()
-            
-            print("[cyan]Creating repository...[/]")
-            api.create_repo(
-                repo_id=repo_id,
-                repo_type="model",
-                private=private,
-                token=token,
-                exist_ok=True,
-            )
-            
-            # Upload entire folder to preserve all files
-            print("[cyan]Uploading files (this may take several minutes for large GGUF files)...[/]")
-            
-            # List all files to be uploaded
-            all_files = list(model_path.glob("*"))
-            print(f"[dim]Uploading {len(all_files)} files total...[/]")
-            
-            upload_folder(
-                folder_path=str(model_path),
-                repo_id=repo_id,
-                repo_type="model",
-                token=token,
-                ignore_patterns=[".*"],  # Only ignore hidden files
-            )
-            print("[green]✓ All files uploaded (including GGUFs)[/]")
-        else:
-            # Standard model upload (no GGUF files)
-            print("\n[cyan]Loading model...[/]")
-            model = AutoModelForCausalLM.from_pretrained(str(model_path))
-            tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-            
-            print("[cyan]Uploading model...[/]")
-            model.push_to_hub(repo_id, private=private, token=token)
-            
-            print("[cyan]Uploading tokenizer...[/]")
-            tokenizer.push_to_hub(repo_id, private=private, token=token)
-            print("[green]✓ Model uploaded[/]")
-        
-        # Create model card if requested
-        if create_card:
-            try:
-                print("[cyan]Creating model card...[/]")
-                card = ModelCard.load(repo_id, token=token)
-                if not card.text or card.text.strip() == "":
-                    # Build GGUF section if files exist
-                    gguf_section = ""
-                    if gguf_files:
-                        gguf_list = "\n".join([f"- `{gguf.name}`" for gguf in gguf_files])
-                        gguf_section = f"""
-## GGUF Files
-
-This repository includes pre-quantized GGUF files for use with llama.cpp and other GGUF-compatible inference engines:
-
-{gguf_list}
-
-### Using GGUF Files
-
-```bash
-# Download a specific GGUF file
-huggingface-cli download {repo_id} {gguf_files[0].name}
-
-# Use with llama.cpp
-./llama.cpp/main -m {gguf_files[0].name} -p "Your prompt here"
-```
-"""
-                    
-                    card.text = f"""---
-tags:
-- text-generation
-- transformers
-- blasphemer{" " if not gguf_files else ""}
-{"- gguf" if gguf_files else ""}
-license: other
----
-
-# {model_path.name}
-
-This model was uploaded using [Blasphemer](https://github.com/sunkencity999/blasphemer).
-
-## Model Details
-
-- **Base Model**: {model_path.name}
-- **Upload Date**: {time.strftime("%Y-%m-%d")}
-- **Uploaded by**: {user['name']}
-{f"- **GGUF Files**: {len(gguf_files)} quantized versions included" if gguf_files else ""}
-
-## Usage
-
-### Transformers (PyTorch)
-
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model = AutoModelForCausalLM.from_pretrained("{repo_id}")
-tokenizer = AutoTokenizer.from_pretrained("{repo_id}")
-
-# Generate text
-prompt = "Your prompt here"
-inputs = tokenizer(prompt, return_tensors="pt")
-outputs = model.generate(**inputs, max_length=100)
-print(tokenizer.decode(outputs[0]))
-```
-{gguf_section}
-## Citation
-
-If you use this model, please cite:
-
-```
-@software{{blasphemer2025,
-  author = {{Bradford, Christopher}},
-  title = {{Blasphemer: Advanced Model Modification Toolkit}},
-  year = {{2025}},
-  url = {{https://github.com/sunkencity999/blasphemer}}
-}}
-```
-"""
-                    card.push_to_hub(repo_id, token=token)
-                    print("[green]✓ Model card created[/]")
-            except Exception as card_error:
-                print(f"[yellow]Warning: Could not create model card: {card_error}[/]")
-        
-        print(f"\n[bold green]✓ Model uploaded to {repo_id}[/]")
-        print(f"View at: [blue underline]https://huggingface.co/{repo_id}[/]")
-        
-    except Exception as e:
-        print(f"[red]Error uploading model: {e}[/]")
-        import traceback
-        traceback.print_exc()
-
-
-def upload_gguf_to_huggingface(
-    gguf_path: str,
-    token: str = None,
-) -> None:
-    """
-    Upload a GGUF file to HuggingFace Hub.
-    
-    Args:
-        gguf_path: Path to the GGUF file
-        token: Optional HF token (will prompt if not provided)
-    """
-    from huggingface_hub import HfApi, ModelCard
-    
-    gguf_path = Path(gguf_path)
-    if not gguf_path.exists():
-        print(f"[red]Error: GGUF file does not exist: {gguf_path}[/]")
-        return
-    
-    print(f"\n[bold cyan]Uploading GGUF to Hugging Face[/]")
-    print("=" * 80)
-    print(f"GGUF file: {gguf_path.name}")
-    print(f"Size: {gguf_path.stat().st_size / (1024**3):.2f} GB")
-    print()
-    
-    # Get token
-    if not token:
-        token = huggingface_hub.get_token()
-    if not token:
-        token = questionary.password("Hugging Face access token:").ask()
-    if not token:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    # Get user info
-    try:
-        api = HfApi()
-        user = huggingface_hub.whoami(token)
-        print(f"Logged in as [bold]{user['fullname']} ({user['name']})[/]")
-    except Exception as e:
-        print(f"[red]Error: Invalid token or connection failed: {e}[/]")
-        return
-    
-    # Get repo name
-    default_name = gguf_path.stem.replace(".gguf", "")
-    repo_name = questionary.text(
-        "Repository name (without username):",
-        default=default_name,
-    ).ask()
-    
-    if not repo_name:
-        print("[yellow]Upload cancelled[/]")
-        return
-    
-    repo_id = f"{user['name']}/{repo_name}"
-    
-    # Ask if private
-    private = questionary.confirm(
-        "Make repository private?",
-        default=False,
-    ).ask()
-    
-    # Ask if this should create/update model card
-    create_card = questionary.confirm(
-        "Create or update model card?",
-        default=True,
-    ).ask()
-    
-    try:
-        # Create or get repository
-        print(f"\n[cyan]Creating repository {repo_id}...[/]")
-        try:
-            api.create_repo(
-                repo_id=repo_id,
-                repo_type="model",
-                private=private,
-                exist_ok=True,
-            )
-            print("[green]✓ Repository ready[/]")
-        except Exception as e:
-            print(f"[yellow]Note: {e}[/]")
-        
-        # Upload GGUF file
-        print(f"\n[cyan]Uploading {gguf_path.name} (this may take several minutes)...[/]")
-        api.upload_file(
-            path_or_fileobj=str(gguf_path),
-            path_in_repo=gguf_path.name,
-            repo_id=repo_id,
-            repo_type="model",
-            token=token,
-        )
-        print(f"[green]✓ {gguf_path.name} uploaded[/]")
-        
-        # Create model card if requested
-        if create_card:
-            try:
-                print("[cyan]Creating/updating model card...[/]")
-                
-                # Try to load existing card
-                try:
-                    card = ModelCard.load(repo_id, token=token)
-                    print("[dim]Updating existing model card...[/]")
-                except:
-                    card = ModelCard("")
-                    print("[dim]Creating new model card...[/]")
-                
-                # Only update if card is empty or very short
-                if not card.text or len(card.text.strip()) < 100:
-                    card.text = f"""---
-tags:
-- gguf
-- quantized
-- blasphemer
-license: other
----
-
-# {repo_name}
-
-This GGUF model was uploaded using [Blasphemer](https://github.com/sunkencity999/blasphemer).
-
-## File Information
-
-- **Filename**: `{gguf_path.name}`
-- **Size**: {gguf_path.stat().st_size / (1024**3):.2f} GB
-- **Upload Date**: {time.strftime("%Y-%m-%d")}
-
-## Usage
-
-### With llama.cpp
-
-```bash
-# Download the model
-huggingface-cli download {repo_id} {gguf_path.name}
-
-# Run with llama.cpp
-./llama.cpp/main -m {gguf_path.name} -p "Your prompt here"
-```
-
-### With LM Studio
-
-1. Open LM Studio
-2. Go to "Download" or search for `{repo_id}`
-3. Download and load the model
-4. Start chatting!
-
-### With Python (llama-cpp-python)
-
-```python
-from llama_cpp import Llama
-
-llm = Llama(model_path="{gguf_path.name}")
-output = llm("Your prompt here", max_tokens=100)
-print(output['choices'][0]['text'])
-```
-
-## Citation
-
-If you use this model, please cite:
-
-```
-@software{{blasphemer2025,
-  author = {{Bradford, Christopher}},
-  title = {{Blasphemer: Advanced Model Modification Toolkit}},
-  year = {{2025}},
-  url = {{https://github.com/sunkencity999/blasphemer}}
-}}
-```
-"""
-                card.push_to_hub(repo_id, token=token)
-                print("[green]✓ Model card created[/]")
-            except Exception as card_error:
-                print(f"[yellow]Warning: Could not create/update model card: {card_error}[/]")
-        
-        print(f"\n[bold green]✓ GGUF file uploaded to {repo_id}[/]")
-        print(f"View at: [blue underline]https://huggingface.co/{repo_id}[/]")
-        
-    except Exception as e:
-        print(f"[red]Error uploading GGUF: {e}[/]")
-        import traceback
-        traceback.print_exc()
 
 
 def finetune_model(settings: Settings) -> None:
@@ -574,7 +61,7 @@ def finetune_model(settings: Settings) -> None:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from .finetuner import FineTuner
     
-    print(f"\n[bold cyan]Fine-Tuning Mode[/]")
+    print("\n[bold cyan]Fine-Tuning Mode[/]")
     print("=" * 80)
     print(f"Model: {settings.model}")
     print(f"Dataset: {settings.fine_tune_dataset}")
@@ -617,7 +104,7 @@ def finetune_model(settings: Settings) -> None:
     )
     
     if result_path:
-        print(f"\n[bold green]✓ Fine-tuning complete![/]")
+        print("\n[bold green]✓ Fine-tuning complete![/]")
         print(f"  Output: {result_path}")
         
         # Ask if user wants to upload
@@ -673,7 +160,7 @@ def run():
     if torch.cuda.is_available():
         print(f"GPU type: [bold]{torch.cuda.get_device_name()}[/]")
     elif torch.backends.mps.is_available():
-        print(f"GPU type: [bold]Apple Silicon (MPS)[/]")
+        print("GPU type: [bold]Apple Silicon (MPS)[/]")
     elif is_xpu_available():
         print(f"XPU type: [bold]{torch.xpu.get_device_name()}[/]")
     elif is_mlu_available():
@@ -883,7 +370,7 @@ def run():
                 existing_study = None
         else:
             print()
-            print(f"[yellow]Found existing checkpoint but --resume not specified.[/]")
+            print("[yellow]Found existing checkpoint but --resume not specified.[/]")
             print(f"* Checkpoint location: {storage_path}")
             print("* Use [bold]--resume[/] to continue from checkpoint")
             print("* Starting fresh optimization (checkpoint will be overwritten)")
@@ -1198,7 +685,7 @@ def run():
                         settings.finetuning_output_dir = original_output_dir
                         
                         if result_path:
-                            print(f"\n[bold green]✓ Fine-tuning complete![/]")
+                            print("\n[bold green]✓ Fine-tuning complete![/]")
                             print(f"  Output: {result_path}")
                             
                             # Ask if user wants to upload

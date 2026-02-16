@@ -3,9 +3,8 @@ Dataset processing for fine-tuning.
 Handles PDF, text files, and HuggingFace datasets.
 """
 
-import os
 from pathlib import Path
-from typing import List, Dict, Union, Optional
+from typing import List, Dict
 import PyPDF2
 from datasets import Dataset, load_dataset
 from rich import print

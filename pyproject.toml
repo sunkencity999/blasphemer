@@ -73,3 +73,15 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "heretic"
+
+[tool.ruff]
+exclude = [
+    "llama.cpp",
+    ".venv",
+    "venv",
+    "build",
+    "dist"
+]
+
+[tool.ruff.lint]
+ignore = ["E501"] # Ignore line length violations

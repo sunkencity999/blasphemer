@@ -16,6 +16,15 @@
 
 set -euo pipefail
 
+# Check for help flag
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+    echo "Blasphemer Installation Script for macOS"
+    echo "Usage: ./install-macos.sh"
+    echo ""
+    echo "This script installs Blasphemer and its dependencies."
+    exit 0
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

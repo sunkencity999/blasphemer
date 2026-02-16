@@ -6,7 +6,12 @@
 # Validates that all shell scripts are properly formatted and executable
 ################################################################################
 
-set -euo pipefail
+set -uo pipefail
+
+# Polyfill timeout if missing (for macOS)
+if ! command -v timeout &> /dev/null; then
+    timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+fi
 
 # Colors
 RED='\033[0;31m'

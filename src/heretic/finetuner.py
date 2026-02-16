@@ -117,15 +117,15 @@ class FineTuner:
                 output_path=merged_path,
             )
             
-            print(f"\n[bold green]✓ Fine-tuning complete![/]")
+            print("\n[bold green]✓ Fine-tuning complete![/]")
             print(f"  Adapter: {adapter_path}")
             print(f"  Merged model: {merged_path}")
             
             return merged_path
         else:
-            print(f"\n[bold green]✓ Fine-tuning complete![/]")
+            print("\n[bold green]✓ Fine-tuning complete![/]")
             print(f"  Adapter: {adapter_path}")
-            print(f"  [dim]To merge later, use --merge-lora flag[/]")
+            print("  [dim]To merge later, use --merge-lora flag[/]")
             
             return adapter_path
     

@@ -72,7 +72,7 @@ def upload_gguf_to_hf(
             repo_type="model",
             commit_message=commit_message,
         )
-        print(f"✅ Upload complete!")
+        print("✅ Upload complete!")
         print(f"🔗 View at: https://huggingface.co/{repo_id}")
         
     except Exception as e:
@@ -216,7 +216,7 @@ This model inherits the Llama 3.1 license from Meta AI. Please review the [Llama
             repo_type="model",
             commit_message="Add model card",
         )
-        print(f"✅ Model card created!")
+        print("✅ Model card created!")
     except Exception as e:
         print(f"⚠️  Warning: Could not create model card: {e}")
 

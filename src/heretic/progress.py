@@ -9,10 +9,8 @@ import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 from rich.console import Console
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 from rich.table import Table
 from rich.panel import Panel
-from rich.layout import Layout
 from rich import box
 
 
@@ -270,7 +268,7 @@ class ProgressTracker:
         total_time = time.time() - self.start_time
         avg_time_per_trial = total_time / len(self.trial_history) if self.trial_history else 0
         
-        self.console.print(f"[bold]Summary:[/]")
+        self.console.print("[bold]Summary:[/]")
         self.console.print(f"  Total trials: {len(self.trial_history)}")
         self.console.print(f"  Total time: {self._format_duration(total_time)}")
         self.console.print(f"  Avg per trial: {self._format_duration(avg_time_per_trial)}")
@@ -278,7 +276,7 @@ class ProgressTracker:
         
         # Best trial
         if self.best_trial:
-            self.console.print(f"[bold green]Best Result:[/]")
+            self.console.print("[bold green]Best Result:[/]")
             self.console.print(f"  Trial: [green]#{self.best_trial.trial_number}[/]")
             self.console.print(f"  KL Divergence: [green]{self.best_trial.kl_divergence:.3f}[/]")
             self.console.print(f"  Refusals: [green]{self.best_trial.refusals}/{self.best_trial.total_prompts}[/] ([green]{self.best_trial.refusal_rate:.1f}%[/])")

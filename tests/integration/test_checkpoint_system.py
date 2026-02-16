@@ -7,7 +7,6 @@ import sqlite3
 import tempfile
 import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 # Disable CLI parsing for all tests in this module
 @pytest.fixture(autouse=True)

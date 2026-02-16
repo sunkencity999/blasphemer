@@ -3,16 +3,13 @@ LoRA training module using PEFT.
 Handles the core training loop with progress tracking.
 """
 
-import os
 import time
-from typing import Dict, Optional
 from pathlib import Path
 
 import torch
 from peft import (
     LoraConfig,
     get_peft_model,
-    prepare_model_for_kbit_training,
     TaskType,
 )
 from transformers import (
@@ -21,7 +18,6 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 from rich import print
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
 from .config import Settings
 
@@ -84,7 +80,7 @@ class LoRATrainer:
         )
         total_params = sum(p.numel() for p in self.model.parameters())
         
-        print(f"[green]✓ LoRA adapters applied[/]")
+        print("[green]✓ LoRA adapters applied[/]")
         print(f"  Trainable parameters: {trainable_params:,} ({100 * trainable_params / total_params:.2f}%)")
         print(f"  Total parameters: {total_params:,}")
     
@@ -149,7 +145,7 @@ class LoRATrainer:
             desc="Tokenizing validation data",
         )
         
-        print(f"[green]✓ Tokenization complete[/]")
+        print("[green]✓ Tokenization complete[/]")
         
         # Data collator
         data_collator = DataCollatorForLanguageModeling(
@@ -165,7 +161,7 @@ class LoRATrainer:
             * self.settings.num_train_epochs
         )
         
-        print(f"[cyan]Training configuration:[/]")
+        print("[cyan]Training configuration:[/]")
         print(f"  Epochs: {self.settings.num_train_epochs}")
         print(f"  Batch size: {self.settings.per_device_train_batch_size}")
         print(f"  Gradient accumulation: {self.settings.gradient_accumulation_steps}")
@@ -218,7 +214,7 @@ class LoRATrainer:
             train_result = trainer.train()
             
             training_time = time.time() - start_time
-            print(f"\n[bold green]✓ Training complete![/]")
+            print("\n[bold green]✓ Training complete![/]")
             print(f"  Time: {training_time / 60:.1f} minutes")
             print(f"  Final loss: {train_result.training_loss:.4f}")
             
@@ -238,7 +234,7 @@ class LoRATrainer:
         print("\n[cyan]Running final evaluation...[/]")
         eval_results = trainer.evaluate()
         
-        print(f"[green]✓ Evaluation complete[/]")
+        print("[green]✓ Evaluation complete[/]")
         print(f"  Validation loss: {eval_results['eval_loss']:.4f}")
         print(f"  Validation perplexity: {torch.exp(torch.tensor(eval_results['eval_loss'])):.2f}")
         
@@ -256,7 +252,7 @@ class LoRATrainer:
             adapter_path: Path to LoRA adapter
             output_path: Path to save merged model
         """
-        print(f"\n[cyan]Merging LoRA adapter...[/]")
+        print("\n[cyan]Merging LoRA adapter...[/]")
         
         from peft import PeftModel
         

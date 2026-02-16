@@ -13,6 +13,15 @@ set -euo pipefail
 # Error handler
 trap 'echo "Error on line $LINENO. Exit code: $?" >&2' ERR
 
+# Check for help flag
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+    printf "Blasphemer Launcher Script\n"
+    printf "Usage: ./blasphemer.sh [options]\n"
+    printf "Options:\n"
+    printf "  --help, -h    Show this help message\n"
+    exit 0
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

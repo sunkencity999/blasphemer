@@ -158,7 +158,7 @@ class TestResumeArgument:
         assert "--resume true" in correct_cmd or "--resume false" in correct_cmd
         
         # Old incorrect format (would fail)
-        incorrect_cmd = "blasphemer --resume --model test-model"
+        # incorrect_cmd = "blasphemer --resume --model test-model"
         # This is the bug - --resume alone expects an argument
     
     def test_resume_in_shell_script_format(self):

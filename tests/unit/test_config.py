@@ -3,8 +3,6 @@ Unit tests for Blasphemer configuration module.
 """
 
 import pytest
-from pathlib import Path
-from unittest.mock import patch
 from heretic.config import Settings, DatasetSpecification
 
 # Disable CLI parsing for all tests in this module
