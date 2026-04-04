@@ -200,13 +200,28 @@ check_prerequisites() {
         print_info "Install from: https://brew.sh"
     fi
     
-    # Check disk space
+    # Check disk space (convert to GB regardless of unit reported by df -h)
     print_step "Checking disk space..."
-    local available_space=$(df -h "$HOME" | awk 'NR==2 {print $4}' | sed 's/Gi//')
-    if [[ ${available_space%.*} -ge 10 ]]; then
-        print_success "Sufficient disk space available (${available_space}GB free)"
+    local raw_space
+    raw_space=$(df -h "$HOME" | awk 'NR==2 {print $4}')
+    local space_num=${raw_space%%[A-Za-z]*}
+    local space_unit=${raw_space##*[0-9.]}
+    local space_gb=0
+    case "$space_unit" in
+        Ki|KiB|K|KB) space_gb=0 ;;
+        Mi|MiB|M|MB) space_gb=$(echo "$space_num / 1024" | bc 2>/dev/null || echo 0) ;;
+        Gi|GiB|G|GB) space_gb=${space_num%.*} ;;
+        Ti|TiB|T|TB) space_gb=$(echo "$space_num * 1024" | bc 2>/dev/null | cut -d. -f1 || echo 0) ;;
+        Pi|PiB|P|PB) space_gb=$(echo "$space_num * 1048576" | bc 2>/dev/null | cut -d. -f1 || echo 0) ;;
+        *) space_gb=${space_num%.*} ;; # assume GB if no recognized unit
+    esac
+
+    if [[ "$space_gb" -ge 100 ]]; then
+        print_success "Sufficient disk space available (~${space_gb}GB free)"
+    elif [[ "$space_gb" -ge 50 ]]; then
+        print_info "Disk space: ~${space_gb}GB free (100GB+ recommended for large models)"
     else
-        print_warning "Low disk space: ${available_space}GB free (10GB+ recommended)"
+        print_warning "Low disk space: ~${space_gb}GB free (minimum 50GB, recommended 100GB+)"
     fi
     
     echo ""
