@@ -124,6 +124,61 @@ def finetune_model(settings: Settings) -> None:
             )
 
 
+def heal_model(settings: Settings) -> None:
+    """
+    Run a DPO healing pass on an existing model (without abliteration).
+
+    Args:
+        settings: Application settings
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from .healer import Healer
+
+    print("\n[bold cyan]Capability Healing Mode[/]")
+    print("=" * 80)
+    print(f"Model: {settings.model}")
+    print(f"Preference dataset: {settings.heal_dataset}")
+    print()
+
+    default_output = str(
+        Path(settings.heal_output_dir) / f"{Path(settings.model).name}-healed"
+    )
+    output_dir = questionary.text(
+        "Output directory for healed model:",
+        default=default_output,
+    ).ask()
+
+    if not output_dir:
+        print("[yellow]Healing cancelled[/]")
+        return
+
+    print("[cyan]Loading model...[/]")
+    model = AutoModelForCausalLM.from_pretrained(
+        settings.model,
+        trust_remote_code=True,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(settings.model)
+    print("[green]✓ Model loaded[/]")
+
+    healer = Healer(model=model, tokenizer=tokenizer, settings=settings)
+    result_path = healer.run(output_dir=output_dir)
+
+    if result_path:
+        print("\n[bold green]✓ Healing complete![/]")
+        print(f"  Output: {result_path}")
+
+        upload = questionary.confirm(
+            "Would you like to upload the healed model to Hugging Face?",
+            default=False,
+        ).ask()
+
+        if upload:
+            upload_model_to_huggingface(
+                model_path=result_path,
+                model_name=Path(settings.model).name,
+            )
+
+
 def run():
     # Modified "Pagga" font from https://budavariam.github.io/asciiart-text/
     print(f"[cyan]█▀▄░█░░░█▀█░█▀▀░█▀█░█░█░█▀▀░█▄█░█▀▀░█▀▄[/]  v{version('blasphemer')}")
@@ -212,6 +267,7 @@ def run():
             "What would you like to do?",
             choices=[
                 "Process a model (abliteration/fine-tuning)",
+                "Heal a model (recover capabilities via DPO)",
                 "Search HuggingFace Models",
                 "List Recent Trending Models",
                 "Quantize & Upload Model",
@@ -226,6 +282,11 @@ def run():
 
         if action == "Process a model (abliteration/fine-tuning)":
             # Proceed to model selection below.
+            break
+
+        if action == "Heal a model (recover capabilities via DPO)":
+            # Select a model below, then the heal-only dispatch takes over.
+            settings.heal_only = True
             break
 
         if action == "Quantize & Upload Model":
@@ -395,7 +456,12 @@ def run():
             return
         finetune_model(settings)
         return
-    
+
+    # Check for heal-only mode (recover capabilities on an existing model)
+    if settings.heal_only:
+        heal_model(settings)
+        return
+
     # Check if model is a local path (expand and validate first)
     if settings.model:
         # Expand user paths and make absolute
@@ -617,13 +683,14 @@ def run():
             # Build menu choices
             menu_choices = [
                 "Save the model to a local folder",
+                "Heal the model (recover capabilities via DPO)",
                 "Upload to Hugging Face",
             ]
-            
+
             # Add fine-tuning option if dataset is configured
             if settings.fine_tune_dataset:
                 menu_choices.insert(0, "Fine-tune with LoRA (knowledge injection)")
-            
+
             menu_choices.extend([
                 "Chat with the model",
                 "Nothing (return to trial selection menu)",
@@ -643,6 +710,53 @@ def run():
             # the optimized model.
             try:
                 match action:
+                    case "Heal the model (recover capabilities via DPO)":
+                        from .healer import Healer
+
+                        print("\n[bold cyan]Starting Capability Healing[/]")
+                        print("=" * 80)
+
+                        default_output = str(
+                            Path(settings.heal_output_dir)
+                            / f"{Path(settings.model).name}-healed"
+                        )
+                        output_dir = questionary.text(
+                            "Output directory for healed model:",
+                            default=default_output,
+                        ).ask()
+
+                        if not output_dir:
+                            print("[yellow]Healing cancelled[/]")
+                            continue
+
+                        healer = Healer(
+                            model=model.model,
+                            tokenizer=model.tokenizer,
+                            settings=settings,
+                        )
+                        result_path = healer.run(output_dir=output_dir)
+
+                        if result_path:
+                            print("\n[bold green]✓ Healing complete![/]")
+                            print(f"  Output: {result_path}")
+
+                            # Load the healed (merged) model back in so further
+                            # actions (save/upload/chat) use the healed weights.
+                            if settings.merge_lora:
+                                from transformers import (
+                                    AutoModelForCausalLM,
+                                    AutoTokenizer,
+                                )
+
+                                print("\n[cyan]Reloading healed model...[/]")
+                                model.model = AutoModelForCausalLM.from_pretrained(
+                                    result_path
+                                )
+                                model.tokenizer = AutoTokenizer.from_pretrained(
+                                    result_path
+                                )
+                                print("[green]✓ Healed model loaded[/]")
+
                     case "Fine-tune with LoRA (knowledge injection)":
                         from .finetuner import FineTuner
                         

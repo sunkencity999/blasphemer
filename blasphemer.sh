@@ -662,16 +662,17 @@ select_operation() {
     print_option "1" "Process a new model ${DIM}(Full workflow: decensor + save + convert)${NC}" >&2
     print_option "2" "Process model only ${DIM}(Decensor without conversion)${NC}" >&2
     print_option "3" "Fine-tune a model (LoRA) ${DIM}(Inject knowledge from PDFs/text/datasets)${NC}" >&2
-    print_option "4" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
-    print_option "5" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
-    print_option "6" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
-    print_option "7" "View help and documentation" >&2
-    print_option "8" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
-    print_option "9" "Interactive Mode ${DIM}(Search, Upload, Advanced Tools)${NC}" >&2
-    print_option "10" "Exit" >&2
+    print_option "4" "Heal a model ${DIM}(Recover capabilities after abliteration via DPO)${NC}" >&2
+    print_option "5" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
+    print_option "6" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
+    print_option "7" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
+    print_option "8" "View help and documentation" >&2
+    print_option "9" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
+    print_option "10" "Interactive Mode ${DIM}(Search, Upload, Advanced Tools)${NC}" >&2
+    print_option "11" "Exit" >&2
     echo "" >&2
 
-    local choice=$(read_choice "Enter your choice (1-10):" 10)
+    local choice=$(read_choice "Enter your choice (1-11):" 11)
     printf "%s" "$choice"
 }
 
@@ -966,6 +967,51 @@ finetune_model_flow() {
     blasphemer --model "$model_name" --fine-tune-only true --fine-tune-dataset "$dataset"
 }
 
+heal_model_flow() {
+    print_banner
+    print_header "Heal a Model (Recover Capabilities)"
+
+    print_info "Abliteration can slightly degrade capabilities. A short DPO pass on a"
+    print_info "general preference dataset recovers most of that loss (mlabonne's recipe)."
+    echo ""
+
+    # Model selection (typically an already-abliterated model)
+    local model_name=$(select_model)
+    if [[ -z "$model_name" ]]; then
+        print_error "No model selected"
+        return 1
+    fi
+    print_success "Selected model: $model_name"
+
+    echo ""
+    print_info "Default preference dataset: mlabonne/orpo-dpo-mix-40k"
+    local dataset=$(read_text "Preference dataset (HuggingFace id)" "mlabonne/orpo-dpo-mix-40k")
+
+    echo ""
+    print_info "Number of preference pairs to use (fewer = faster; 0 = full dataset)."
+    local samples=$(read_text "Sample count" "2000")
+
+    print_header "Healing Summary"
+    printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
+    printf "%bDataset:%b %s\n" "${BOLD}" "${NC}" "$dataset"
+    printf "%bSamples:%b %s\n" "${BOLD}" "${NC}" "$samples"
+    printf "\n"
+
+    local confirm=$(read_yes_no "Start healing?" "y")
+    if [[ "$confirm" != "y" ]]; then
+        print_info "Operation cancelled"
+        return 0
+    fi
+
+    print_header "Healing Model"
+    print_info "You will be prompted for the output directory during the process."
+    print_info "Press Ctrl+C to interrupt; the current state is saved."
+    echo ""
+
+    blasphemer --model "$model_name" --heal-only true \
+        --heal-dataset "$dataset" --heal-samples "$samples"
+}
+
 convert_to_gguf() {
     local model_path="$1"
     local quant_type="${2:-Q4_K_M}"
@@ -1170,7 +1216,7 @@ show_help() {
     echo "    ./convert-to-gguf.sh ~/models/model-name"
     echo ""
     echo "  ${DIM}Upload a model:${NC}"
-    echo "    ./blasphemer.sh → Option 8"
+    echo "    ./blasphemer.sh → Option 9"
     echo ""
     
     read -p "Press Enter to continue..."
@@ -1194,17 +1240,18 @@ main() {
             1) process_new_model ;;
             2) process_model_only ;;
             3) finetune_model_flow ;;
-            4) convert_existing_model ;;
-            5) resume_processing ;;
-            6) manage_checkpoints ;;
-            7) show_help ;;
-            8) upload_model ;;
-            9)
+            4) heal_model_flow ;;
+            5) convert_existing_model ;;
+            6) resume_processing ;;
+            7) manage_checkpoints ;;
+            8) show_help ;;
+            9) upload_model ;;
+            10)
                 print_info "Starting interactive mode..."
                 sleep 1
                 blasphemer
                 ;;
-            10)
+            11)
                 echo ""
                 print_success "Thank you for using Blasphemer!"
                 echo ""

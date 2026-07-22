@@ -275,6 +275,61 @@ class Settings(BaseSettings):
         description="Directory for fine-tuning checkpoints and output.",
     )
 
+    # Healing (post-abliteration capability recovery via DPO)
+    # Abliteration removes refusals but can slightly degrade capabilities. A
+    # short DPO fine-tune on a general preference dataset recovers most of that
+    # loss (mlabonne's NeuralDaredevil recipe). This is separate from
+    # knowledge-injection fine-tuning above.
+    heal: bool = Field(
+        default=False,
+        description="Run a DPO healing pass after abliteration to recover capabilities lost during ablation.",
+    )
+
+    heal_only: bool = Field(
+        default=False,
+        description="Skip abliteration and only run the DPO healing pass on the given model.",
+    )
+
+    heal_dataset: str = Field(
+        default="mlabonne/orpo-dpo-mix-40k",
+        description="HuggingFace preference dataset (prompt/chosen/rejected) used for DPO healing.",
+    )
+
+    heal_samples: int = Field(
+        default=2000,
+        description="Number of preference pairs to use for healing (0 = use the full dataset). A few thousand is enough to recover most degradation and keeps runtime reasonable on Apple Silicon.",
+    )
+
+    heal_epochs: int = Field(
+        default=1,
+        description="Number of epochs for the DPO healing pass.",
+    )
+
+    heal_learning_rate: float = Field(
+        default=5e-5,
+        description="Learning rate for DPO healing (lower than SFT; 5e-5 is a safe default).",
+    )
+
+    heal_beta: float = Field(
+        default=0.1,
+        description="DPO beta (KL penalty). Higher keeps the healed model closer to the abliterated reference.",
+    )
+
+    heal_max_length: int = Field(
+        default=1024,
+        description="Maximum total sequence length (prompt + response) for DPO healing.",
+    )
+
+    heal_max_prompt_length: int = Field(
+        default=512,
+        description="Maximum prompt length for DPO healing.",
+    )
+
+    heal_output_dir: str = Field(
+        default=".blasphemer_healing",
+        description="Directory for healing checkpoints and the merged healed model.",
+    )
+
     # Post-training options
     merge_lora: bool = Field(
         default=True,

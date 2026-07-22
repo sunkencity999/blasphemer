@@ -58,6 +58,24 @@ blasphemer model-name \
 
 See [FINETUNING.md](docs/FINETUNING.md) for complete guide with examples.
 
+### Capability Healing (DPO)
+
+Abliteration removes refusals but can slightly degrade capabilities. Blasphemer can run a short **DPO healing pass** on a general preference dataset to recover most of that loss — mirroring [mlabonne's NeuralDaredevil recipe](https://huggingface.co/mlabonne/NeuralDaredevil-8B-abliterated), where one epoch of DPO fully recovered the abliteration's benchmark cost.
+
+```bash
+# Abliterate, then choose "Heal the model" from the post-run menu
+blasphemer meta-llama/Llama-3.1-8B-Instruct
+
+# Heal an already-abliterated model directly
+blasphemer --model ~/models/my-model-blasphemer --heal-only true
+
+# Customize the preference dataset / sample count
+blasphemer --model my-model --heal-only true \
+  --heal-dataset mlabonne/orpo-dpo-mix-40k --heal-samples 2000
+```
+
+Healing uses LoRA DPO with the abliterated model itself as the reference, so it recovers capabilities without undoing the decensoring. Reported benchmark recovery is self-reported on a narrow suite, so treat it as "recovers most residual degradation," not a guarantee across all tasks.
+
 ### New Features
 
 ```bash
@@ -406,6 +424,7 @@ blasphemer mistralai/Mistral-7B-Instruct-v0.3
 - Multimodal models (vision/audio) - require problematic dependencies on macOS
 - Models > 70B parameters - require substantial resources
 - SSMs/hybrid models (Mamba, etc.) - not supported by Heretic/Blasphemer
+- Reasoning / chain-of-thought models (DeepSeek-R1 distills, QwQ, etc.) - single-direction abliteration is much weaker on these because refusal is jointly encoded in the reasoning trace, not only the residual stream ([Yang et al. 2026](https://arxiv.org/pdf/2605.26772)). Expect partial results.
 
 See [USER_GUIDE.md](docs/USER_GUIDE.md) for complete model recommendations.
 
