@@ -95,7 +95,14 @@ class TestConfigValidation:
         assert settings.n_startup_trials >= 0
         assert settings.n_startup_trials <= settings.n_trials
     
-    def test_model_required(self):
-        """Test that model parameter is required."""
-        with pytest.raises((ValueError, TypeError)):
-            Settings()  # Should fail without model
+    def test_model_optional_for_interactive_mode(self):
+        """Model is optional so the app can launch into interactive mode."""
+        settings = Settings()
+        # When no model is supplied, it defaults to None and the app prompts
+        # the user to choose/discover one interactively.
+        assert settings.model is None
+
+    def test_model_can_be_set(self):
+        """A model identifier provided explicitly is respected."""
+        settings = Settings(model="test-model")
+        assert settings.model == "test-model"

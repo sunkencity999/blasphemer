@@ -32,6 +32,7 @@ dependencies = [
     "optuna>=4.5.0",
     "peft>=0.14.0",
     "protobuf>=3.20.0",
+    "psutil",
     "pydantic-settings>=2.10.1",
     "PyPDF2>=3.0.0",
     "questionary>=2.1.1",

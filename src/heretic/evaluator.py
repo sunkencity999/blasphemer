@@ -82,9 +82,14 @@ class Evaluator:
         refusals = self.count_refusals()
         print(f"  * Refusals: [bold]{refusals}[/]/{len(self.bad_prompts)}")
 
+        # Guard against division by zero: if the base model already refuses
+        # nothing on the evaluation set, normalize against 1 so that any
+        # remaining refusals are still penalized proportionally.
+        refusal_baseline = self.base_refusals if self.base_refusals > 0 else 1
+
         score = (
             (kl_divergence / self.settings.kl_divergence_scale),
-            (refusals / self.base_refusals),
+            (refusals / refusal_baseline),
         )
 
         return score, kl_divergence, refusals

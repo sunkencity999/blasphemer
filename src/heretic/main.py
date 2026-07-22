@@ -1,20 +1,22 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2025  Philipp Emanuel Weidmann <pew@worldwidemann.com>
 
-import hashlib
 import math
 import sys
 import time
 import warnings
-from dataclasses import asdict
 from importlib.metadata import version
 from pathlib import Path
+import os
+
+# Disable SSL verification by default for corporate/VPN compatibility
+# MUST be set before huggingface_hub is imported
+os.environ["HF_HUB_DISABLE_SSL_VERIFY"] = "1"
 
 import huggingface_hub
 import optuna
 import questionary
 import torch
-import torch.nn.functional as F
 import transformers
 from accelerate.utils import (
     is_mlu_available,
@@ -24,10 +26,7 @@ from accelerate.utils import (
     is_xpu_available,
 )
 from huggingface_hub import ModelCard, ModelCardData
-from optuna import Trial
 from optuna.exceptions import ExperimentalWarning
-from optuna.samplers import TPESampler
-from optuna.study import StudyDirection
 from pydantic import ValidationError
 from questionary import Choice, Style
 from rich.traceback import install
@@ -35,10 +34,8 @@ from rich.traceback import install
 from heretic.config import Settings
 from heretic.evaluator import Evaluator
 from heretic.model import AbliterationParameters, Model
-from heretic.progress import ProgressTracker
 from heretic.utils import (
     get_readme_intro,
-    get_trial_parameters,
     load_prompts,
     print,
 )
@@ -46,6 +43,10 @@ from heretic.upload import (
     interactive_model_upload,
     upload_model_to_huggingface,
 )
+from heretic.optimizer import Optimizer
+from heretic.preflight import PreflightCheck
+from heretic.discovery import search_huggingface_models, list_recent_trending_models
+from heretic.deploy import Deployer
 
 
 
@@ -196,28 +197,196 @@ def run():
     # Silence the warning about multivariate TPE being experimental.
     warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
-    # Offer standalone upload option if no specific mode requested
-    if not settings.fine_tune_only and not settings.fine_tune_dataset:
-        # Check if user just wants to upload a model
+    # Show the interactive top-level menu only when no model was specified on
+    # the command line / config (pure interactive launch). When a model is
+    # given, honor the documented CLI behavior and proceed straight to
+    # processing (respecting any fine-tuning flags).
+    if not settings.model:
+        # Check if user just wants to upload a model or discover
         action = questionary.select(
             "What would you like to do?",
             choices=[
                 "Process a model (abliteration/fine-tuning)",
-                "Upload a model to HuggingFace",
+                "Search HuggingFace Models",
+                "List Recent Trending Models",
+                "Quantize & Upload Model",
                 "Exit",
             ],
             style=Style([("highlighted", "reverse")]),
         ).ask()
-        
-        if action == "Upload a model to HuggingFace":
-            interactive_model_upload()
-            return
+
+        if action == "Quantize & Upload Model":
+             interactive_model_upload() 
+             # interactive_model_upload in upload.py handles GGUF and uploads, 
+             # but we might want to expose quantization explicitly here?
+             # For now, let's stick to the upload workflow which includes GGUF discovery.
+             # Actually, the user asked for "Quantize and upload". 
+             # deploy.py handles quantization. upload.py handles upload.
+             # Let's add a specific quantization flow here.
+             
+             print("\n[bold cyan]Quantization & Deployment[/]")
+             print("=" * 80)
+             
+             deployer = Deployer()
+             if not deployer.ensure_llama_cpp_build():
+                 return
+
+             # Ask what to do
+             deploy_action = questionary.select(
+                 "Choose action:",
+                 choices=[
+                     "Convert HF model to GGUF",
+                     "Quantize existing GGUF",
+                     "Upload model/GGUF to HuggingFace",
+                     "Back",
+                 ]
+             ).ask()
+             
+             if deploy_action == "Convert HF model to GGUF":
+                 from heretic.discovery import discover_models_in_directory
+                 import os
+                 default_models_dir = os.path.expanduser("~/blasphemer-models")
+                 search_paths = [".", default_models_dir]
+                 
+                 print(f"[cyan]Scanning for models in current directory and {default_models_dir}...[/]")
+                 discovered = discover_models_in_directory(search_paths)
+                 choices = [str(m) for m in discovered.get("models", [])]
+                 choices.append("Other (enter path)")
+                 
+                 model_path = questionary.select(
+                     "Select model directory:",
+                     choices=choices
+                 ).ask()
+                 
+                 if model_path == "Other (enter path)":
+                     model_path = questionary.path("Path to HF model directory:", only_directories=True).ask()
+                 
+                 if model_path:
+                     out_type = questionary.select("Output type:", choices=["f16", "f32", "q8_0"]).ask()
+                     deployer.convert_to_gguf(Path(model_path), out_type=out_type)
+                     
+             elif deploy_action == "Quantize existing GGUF":
+                 from heretic.discovery import discover_models_in_directory
+                 import os
+                 default_models_dir = os.path.expanduser("~/blasphemer-models")
+                 search_paths = [".", default_models_dir]
+                 
+                 print(f"[cyan]Scanning for GGUF files in current directory and {default_models_dir}...[/]")
+                 discovered = discover_models_in_directory(search_paths)
+                 choices = [str(g) for g in discovered.get("gguf_files", [])]
+                 choices.append("Other (enter path)")
+                 
+                 gguf_path = questionary.select(
+                     "Select GGUF file:",
+                     choices=choices
+                 ).ask()
+                 
+                 if gguf_path == "Other (enter path)":
+                     gguf_path = questionary.path("Path to GGUF file:").ask()
+                 
+                 if gguf_path:
+                     methods = questionary.checkbox(
+                         "Select quantization methods:",
+                         choices=["Q4_K_M", "Q5_K_M", "Q8_0", "Q6_K", "Q3_K_M"],
+                         default="Q4_K_M"
+                     ).ask()
+                     if methods:
+                         deployer.quantize_model(Path(gguf_path), methods)
+             
+             elif deploy_action == "Upload model/GGUF to HuggingFace":
+                 interactive_model_upload()
+                 
+             return
+
+        elif action in ["Search HuggingFace Models", "List Recent Trending Models"]:
+            if action == "Search HuggingFace Models":
+                query = questionary.text("Enter search query:").ask()
+                if not query:
+                    return
+                print("[cyan]Searching...[/]")
+                models = search_huggingface_models(query, limit=20)
+            else:
+                print("[cyan]Fetching trending models...[/]")
+                models = list_recent_trending_models(limit=20)
+                
+            if not models:
+                print("[yellow]No models found.[/]")
+                return
+                
+            # Create choices
+            model_choices = []
+            for m in models:
+                info = f"{m['id']} (⬇ {m['downloads']} ❤ {m['likes']})"
+                model_choices.append(Choice(title=info, value=m['id']))
+            
+            model_choices.append(Choice(title="Back", value="back"))
+            
+            selected_model_id = questionary.select(
+                "Select a model:",
+                choices=model_choices,
+                style=Style([("highlighted", "reverse")]),
+            ).ask()
+            
+            if selected_model_id and selected_model_id != "back":
+                # Ask what to do with the selected model
+                next_step = questionary.select(
+                    f"Action for {selected_model_id}:",
+                    choices=[
+                        "Process this model (Download & Abliterate)",
+                        "View on HuggingFace",
+                        "Back"
+                    ]
+                ).ask()
+                
+                if next_step == "Process this model (Download & Abliterate)":
+                    # Update settings to use this model ID
+                    # settings.model is the key. Transformers will download it automatically.
+                    settings.model = selected_model_id
+                    # Continue to normal flow (break out of this if block to reach preflight)
+                    pass 
+                elif next_step == "View on HuggingFace":
+                    import webbrowser
+                    webbrowser.open(f"https://huggingface.co/{selected_model_id}")
+                    return
+                else:
+                    return
+            else:
+                return
+
         elif action == "Exit":
             print("[cyan]Goodbye![/]")
             return
-        # If "Process a model" selected, continue to normal flow
+    
+    # Check if model is set. If we reached here (Process a model selected or fell through),
+    # and settings.model is None, we MUST ask for it.
+    if not settings.model:
+         from heretic.discovery import discover_models_in_directory
+         import os
+         
+         print("\n[cyan]No model specified. Please select a model to process.[/]")
+         
+         # Scan for models
+         default_models_dir = os.path.expanduser("~/blasphemer-models")
+         search_paths = [".", default_models_dir]
+         discovered = discover_models_in_directory(search_paths)
+         choices = [str(m) for m in discovered.get("models", [])]
+         choices.append("Other (enter path or HuggingFace ID)")
+         
+         model_input = questionary.select(
+             "Select model:",
+             choices=choices
+         ).ask()
+         
+         if model_input == "Other (enter path or HuggingFace ID)":
+             settings.model = questionary.text("Enter path or HuggingFace ID:").ask()
+         else:
+             settings.model = model_input
+             
+         if not settings.model:
+             print("[yellow]No model selected. Exiting.[/]")
+             return
 
-    # Check for fine-tune only mode
+    # Check if for fine-tune only mode
     if settings.fine_tune_only:
         if not settings.fine_tune_dataset:
             print("[red]Error: --fine-tune-dataset is required when using --fine-tune-only[/]")
@@ -268,6 +437,14 @@ def run():
                     return
                 # If "Abliterate" selected, continue to normal flow
     
+    # Run pre-flight checks
+    preflight = PreflightCheck(settings.model, settings.device_map)
+    if not preflight.run_checks():
+        # Ask user if they want to continue despite errors/warnings
+        if not questionary.confirm("Checks failed or emitted warnings. Continue anyway?", default=False).ask():
+            print("[yellow]Aborted by user.[/]")
+            return
+
     model = Model(settings)
 
     print()
@@ -337,216 +514,35 @@ def run():
         evaluator.get_score()
         return
 
-    # Set up checkpoint directory and study storage
-    checkpoint_dir = Path(settings.checkpoint_dir)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create a unique study name based on the model ID
-    model_hash = hashlib.md5(settings.model.encode()).hexdigest()[:8]
-    study_name = f"blasphemer_{Path(settings.model).name}_{model_hash}"
-    storage_path = checkpoint_dir / f"{study_name}.db"
-    storage_url = f"sqlite:///{storage_path}"
-    
-    # Check if we're resuming from a checkpoint
-    existing_study = None
-    if storage_path.exists():
-        if settings.resume:
-            print()
-            print(f"[bold green]Found existing checkpoint:[/] {storage_path}")
-            try:
-                existing_study = optuna.load_study(
-                    study_name=study_name,
-                    storage=storage_url,
-                )
-                completed_trials = len([t for t in existing_study.trials if t.state == optuna.trial.TrialState.COMPLETE])
-                print(f"* Completed trials: [bold]{completed_trials}[/]/{settings.n_trials}")
-                if completed_trials >= settings.n_trials:
-                    print("[yellow]Study already completed! Using existing results.[/]")
-                else:
-                    remaining = settings.n_trials - completed_trials
-                    print(f"[bold cyan]Resuming optimization[/] - {remaining} trials remaining")
-            except Exception as error:
-                print(f"[yellow]Warning: Could not load checkpoint ({error}). Starting fresh.[/]")
-                existing_study = None
-        else:
-            print()
-            print("[yellow]Found existing checkpoint but --resume not specified.[/]")
-            print(f"* Checkpoint location: {storage_path}")
-            print("* Use [bold]--resume[/] to continue from checkpoint")
-            print("* Starting fresh optimization (checkpoint will be overwritten)")
-    else:
-        print()
-        print(f"Checkpoint will be saved to: [bold]{storage_path}[/]")
-        print("* Use [bold]--resume[/] to continue if interrupted")
+    # Run optimization
+    optimizer = Optimizer(settings, model, evaluator)
+    opt_start = time.perf_counter()
+    study = optimizer.optimize()
+    opt_elapsed = time.perf_counter() - opt_start
 
-    print()
-    print("Calculating per-layer refusal directions...")
-    print("* Obtaining residuals for good prompts...")
-    good_residuals = model.get_residuals_batched(good_prompts)
-    print("* Obtaining residuals for bad prompts...")
-    bad_residuals = model.get_residuals_batched(bad_prompts)
-    refusal_directions = F.normalize(
-        bad_residuals.mean(dim=0) - good_residuals.mean(dim=0),
-        p=2,
-        dim=1,
-    )
+    if not study:
+         print("[yellow]Optimization skipped or no trials run.[/]")
+         return
 
-    trial_index = 0
-    start_time = time.perf_counter()
-    saved_weights = None  # Cache for clean model weights
-    
-    # Initialize progress tracker for enhanced observability
-    progress_tracker = ProgressTracker(
-        total_trials=settings.n_trials,
-        model_name=settings.model
-    )
+    # Export a durable optimization report (CSV of all trials + Markdown
+    # Pareto-front summary) so the run's results survive after the program exits.
+    try:
+        from heretic.reporting import build_records_from_study, export_report
 
-    def objective(trial: Trial) -> tuple[float, float]:
-        nonlocal trial_index, saved_weights
-        trial_index += 1
-        trial.set_user_attr("index", trial_index)
-
-        direction_scope = trial.suggest_categorical(
-            "direction_scope",
-            [
-                "global",
-                "per layer",
-            ],
+        report_dir = (
+            Path(settings.checkpoint_dir) / "reports" / Path(settings.model).name
         )
-
-        # Discrimination between "harmful" and "harmless" inputs is usually strongest
-        # in layers slightly past the midpoint of the layer stack. See the original
-        # abliteration paper (https://arxiv.org/abs/2406.11717) for a deeper analysis.
-        #
-        # Note that we always sample this parameter even though we only need it for
-        # the "global" direction scope. The reason is that multivariate TPE doesn't
-        # work with conditional or variable-range parameters.
-        direction_index = trial.suggest_float(
-            "direction_index",
-            0.4 * (len(model.get_layers()) - 1),
-            0.9 * (len(model.get_layers()) - 1),
-        )
-
-        if direction_scope == "per layer":
-            direction_index = None
-
-        parameters = {}
-
-        for component in model.get_abliterable_components():
-            # The parameter ranges are based on experiments with various models
-            # and much wider ranges. They are not set in stone and might have to be
-            # adjusted for future models.
-            max_weight = trial.suggest_float(
-                f"{component}.max_weight",
-                0.8,
-                1.5,
-            )
-            max_weight_position = trial.suggest_float(
-                f"{component}.max_weight_position",
-                0.6 * (len(model.get_layers()) - 1),
-                len(model.get_layers()) - 1,
-            )
-            # For sampling purposes, min_weight is expressed as a fraction of max_weight,
-            # again because multivariate TPE doesn't support variable-range parameters.
-            # The value is transformed into the actual min_weight value below.
-            min_weight = trial.suggest_float(
-                f"{component}.min_weight",
-                0.0,
-                1.0,
-            )
-            min_weight_distance = trial.suggest_float(
-                f"{component}.min_weight_distance",
-                1.0,
-                0.6 * (len(model.get_layers()) - 1),
-            )
-
-            parameters[component] = AbliterationParameters(
-                max_weight=max_weight,
-                max_weight_position=max_weight_position,
-                min_weight=(min_weight * max_weight),
-                min_weight_distance=min_weight_distance,
-            )
-
-        trial.set_user_attr("direction_index", direction_index)
-        # Convert AbliterationParameters objects to dicts for JSON serialization
-        trial.set_user_attr("parameters", {k: asdict(v) for k, v in parameters.items()})
-
-        # Display progress with current parameters
-        progress_tracker.display_progress(
-            current_trial=trial_index,
-            current_params=get_trial_parameters(trial)
-        )
-        
-        print()
-        
-        # Performance optimization: Save clean weights on first trial,
-        # then restore from cache instead of reloading entire model.
-        # This reduces trial overhead from ~30s to ~2s (10-15x speedup).
-        if trial_index == 1:
-            print("* Saving clean model weights...")
-            saved_weights = model.save_abliterable_weights()
-            print("* Abliterating...")
-        else:
-            print("* Restoring clean weights (fast)...")
-            model.restore_abliterable_weights(saved_weights)
-            print("* Abliterating...")
-        
-        model.abliterate(refusal_directions, direction_index, parameters)
-        print("* Evaluating...")
-        score, kl_divergence, refusals = evaluator.get_score()
-
-        # Add trial results to progress tracker
-        progress_tracker.add_trial(
-            trial_number=trial_index,
-            kl_divergence=kl_divergence,
-            refusals=refusals,
+        export_report(
+            build_records_from_study(study),
+            model_name=settings.model,
+            output_dir=report_dir,
+            base_refusals=evaluator.base_refusals,
             total_prompts=len(evaluator.bad_prompts),
-            parameters=get_trial_parameters(trial)
+            elapsed_seconds=opt_elapsed,
         )
-        
-        # Display updated progress with results
-        progress_tracker.display_progress(
-            current_trial=trial_index,
-            current_kl=kl_divergence,
-            current_refusals=refusals,
-            current_params=get_trial_parameters(trial)
-        )
-
-        trial.set_user_attr("kl_divergence", kl_divergence)
-        trial.set_user_attr("refusals", refusals)
-
-        return score
-
-    # Create or load study with persistent storage
-    if existing_study is not None:
-        study = existing_study
-        # Calculate how many trials are left to run
-        completed_trials = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
-        n_trials_to_run = settings.n_trials - completed_trials
-    else:
-        study = optuna.create_study(
-            study_name=study_name,
-            storage=storage_url,
-            sampler=TPESampler(
-                n_startup_trials=settings.n_startup_trials,
-                n_ei_candidates=128,
-                multivariate=True,
-            ),
-            directions=[StudyDirection.MINIMIZE, StudyDirection.MINIMIZE],
-            load_if_exists=False,  # We already checked above
-        )
-        n_trials_to_run = settings.n_trials
-
-    if n_trials_to_run > 0:
-        print()
-        print(f"[bold cyan]Starting optimization:[/] {n_trials_to_run} trials")
-        print(f"* Checkpoint: [bold]{storage_path}[/]")
-        study.optimize(objective, n_trials=n_trials_to_run)
-        
-        # Display completion summary with quality analysis
-        progress_tracker.display_completion_summary()
-        print()
-        print(f"[bold green]✓ Checkpoint saved:[/] {storage_path}")
+        print(f"[green]Optimization report saved to[/] [bold]{report_dir}[/]")
+    except Exception as error:
+        print(f"[yellow]Could not write optimization report: {error}[/]")
 
     best_trials = sorted(
         study.best_trials,
@@ -608,7 +604,7 @@ def run():
         }
         
         model.abliterate(
-            refusal_directions,
+            optimizer.refusal_directions,
             trial.user_attrs["direction_index"],
             parameters,
         )
@@ -870,3 +866,6 @@ def main():
             print("[red]Shutting down...[/]")
         else:
             raise
+
+if __name__ == "__main__":
+    main()

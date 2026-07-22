@@ -661,10 +661,11 @@ select_operation() {
     print_option "5" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
     print_option "6" "View help and documentation" >&2
     print_option "7" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
-    print_option "8" "Exit" >&2
+    print_option "8" "Interactive Mode ${DIM}(Search, Upload, Advanced Tools)${NC}" >&2
+    print_option "9" "Exit" >&2
     echo "" >&2
     
-    local choice=$(read_choice "Enter your choice (1-8):" 8)
+    local choice=$(read_choice "Enter your choice (1-9):" 9)
     printf "%s" "$choice"
 }
 
@@ -1086,7 +1087,12 @@ main() {
             5) manage_checkpoints ;;
             6) show_help ;;
             7) upload_model ;;
-            8)
+            8) 
+                print_info "Starting interactive mode..."
+                sleep 1
+                blasphemer
+                ;;
+            9)
                 echo ""
                 print_success "Thank you for using Blasphemer!"
                 echo ""
