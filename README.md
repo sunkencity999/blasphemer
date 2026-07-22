@@ -622,6 +622,11 @@ See [PERFORMANCE_ANALYSIS.md](docs/PERFORMANCE_ANALYSIS.md) and [QUICKSTART_PHAS
 - Check model path is correct
 - Verify all dependencies installed
 
+**SSL certificate errors when downloading models**
+- TLS verification is enabled by default (secure)
+- If you are behind a TLS-intercepting corporate proxy or VPN, opt out with:
+  `BLASPHEMER_DISABLE_SSL_VERIFY=1 blasphemer your-model`
+
 **Performance optimizations not activating**
 - Look for "Saving clean model weights..." in trial 1
 - Trials 2+ should show "Restoring clean weights (fast)..."

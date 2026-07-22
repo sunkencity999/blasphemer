@@ -215,6 +215,9 @@ setup_environment() {
 show_recommended_models() {
     print_header "Recommended Models"
     
+    printf "%b🚀 Fastest / First-Time (best for a quick trial run):%b\n" "${BOLD}" "${NC}"
+    printf "  • microsoft/Phi-3-mini-4k-instruct (3.8B) - completes in ~20 min\n"
+    printf "\n"
     printf "%b⭐ Highly Recommended (Best Success Rate):%b\n" "${BOLD}" "${NC}"
     printf "  • meta-llama/Llama-3.1-8B-Instruct (8B) - BEST CHOICE\n"
     printf "  • mistralai/Mistral-7B-Instruct-v0.3 (7B)\n"
@@ -250,21 +253,23 @@ select_model() {
             echo "" >&2
             echo "Select a recommended model:" >&2
             echo "" >&2
-            print_option "1" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - BEST CHOICE ⭐)${NC}" >&2
-            print_option "2" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High success rate)${NC}" >&2
-            print_option "3" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
-            print_option "4" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
-            print_option "5" "Enter custom HuggingFace model" >&2
+            print_option "1" "microsoft/Phi-3-mini-4k-instruct ${DIM}(3.8B - Fastest, best first run)${NC}" >&2
+            print_option "2" "meta-llama/Llama-3.1-8B-Instruct ${DIM}(8B - BEST CHOICE ⭐)${NC}" >&2
+            print_option "3" "mistralai/Mistral-7B-Instruct-v0.3 ${DIM}(7B - High success rate)${NC}" >&2
+            print_option "4" "Qwen/Qwen2.5-7B-Instruct ${DIM}(7B - Excellent quality)${NC}" >&2
+            print_option "5" "Qwen/Qwen2.5-14B-Instruct ${DIM}(14B - Best quality)${NC}" >&2
+            print_option "6" "Enter custom HuggingFace model" >&2
             echo "" >&2
-            
-            local model_choice=$(read_choice "Enter your choice (1-5):" 5)
-            
+
+            local model_choice=$(read_choice "Enter your choice (1-6):" 6)
+
             case $model_choice in
-                1) printf "meta-llama/Llama-3.1-8B-Instruct" ;;
-                2) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
-                3) printf "Qwen/Qwen2.5-7B-Instruct" ;;
-                4) printf "Qwen/Qwen2.5-14B-Instruct" ;;
-                5) read_text "Enter HuggingFace model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
+                1) printf "microsoft/Phi-3-mini-4k-instruct" ;;
+                2) printf "meta-llama/Llama-3.1-8B-Instruct" ;;
+                3) printf "mistralai/Mistral-7B-Instruct-v0.3" ;;
+                4) printf "Qwen/Qwen2.5-7B-Instruct" ;;
+                5) printf "Qwen/Qwen2.5-14B-Instruct" ;;
+                6) read_text "Enter HuggingFace model name (e.g., meta-llama/Llama-3.1-8B-Instruct)" "" ;;
             esac
             ;;
         2)
@@ -656,16 +661,17 @@ select_operation() {
     echo "" >&2
     print_option "1" "Process a new model ${DIM}(Full workflow: decensor + save + convert)${NC}" >&2
     print_option "2" "Process model only ${DIM}(Decensor without conversion)${NC}" >&2
-    print_option "3" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
-    print_option "4" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
-    print_option "5" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
-    print_option "6" "View help and documentation" >&2
-    print_option "7" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
-    print_option "8" "Interactive Mode ${DIM}(Search, Upload, Advanced Tools)${NC}" >&2
-    print_option "9" "Exit" >&2
+    print_option "3" "Fine-tune a model (LoRA) ${DIM}(Inject knowledge from PDFs/text/datasets)${NC}" >&2
+    print_option "4" "Convert existing model to GGUF ${DIM}(Already decensored)${NC}" >&2
+    print_option "5" "Resume interrupted processing ${DIM}(Continue from checkpoint)${NC}" >&2
+    print_option "6" "Manage checkpoints ${DIM}(View and delete saved runs)${NC}" >&2
+    print_option "7" "View help and documentation" >&2
+    print_option "8" "Upload model to HuggingFace ${DIM}(Browse and upload)${NC}" >&2
+    print_option "9" "Interactive Mode ${DIM}(Search, Upload, Advanced Tools)${NC}" >&2
+    print_option "10" "Exit" >&2
     echo "" >&2
-    
-    local choice=$(read_choice "Enter your choice (1-9):" 9)
+
+    local choice=$(read_choice "Enter your choice (1-10):" 10)
     printf "%s" "$choice"
 }
 
@@ -675,14 +681,10 @@ select_operation() {
 
 process_new_model() {
     print_banner
-    
-    print_info "DEBUG: Starting process_new_model()" >&2
-    
+
     # Model selection
-    print_info "DEBUG: Calling select_model()" >&2
     local model_name=$(select_model)
-    print_info "DEBUG: select_model returned: '$model_name'" >&2
-    
+
     if [[ -z "$model_name" ]]; then
         print_error "No model selected"
         return 1
@@ -918,10 +920,56 @@ process_model_only() {
     return $exit_code
 }
 
+finetune_model_flow() {
+    print_banner
+    print_header "Fine-Tune a Model (LoRA)"
+
+    print_info "Inject custom knowledge into a model from PDFs, text files, or a HuggingFace dataset."
+    echo ""
+
+    # Model selection (base or already-decensored model)
+    local model_name=$(select_model)
+    if [[ -z "$model_name" ]]; then
+        print_error "No model selected"
+        return 1
+    fi
+    print_success "Selected model: $model_name"
+
+    # Dataset selection
+    echo ""
+    print_info "Dataset can be a directory, a .pdf/.txt/.md file, or a HuggingFace dataset name."
+    local dataset=$(read_text "Path to fine-tuning dataset" "")
+    dataset="${dataset/#\~/$HOME}"
+
+    if [[ -z "$dataset" ]]; then
+        print_error "No dataset specified"
+        return 1
+    fi
+
+    # Summary
+    print_header "Fine-Tuning Summary"
+    printf "%bModel:%b %s\n" "${BOLD}" "${NC}" "$model_name"
+    printf "%bDataset:%b %s\n" "${BOLD}" "${NC}" "$dataset"
+    printf "\n"
+
+    local confirm=$(read_yes_no "Start fine-tuning?" "y")
+    if [[ "$confirm" != "y" ]]; then
+        print_info "Operation cancelled"
+        return 0
+    fi
+
+    print_header "Fine-Tuning Model"
+    print_info "You will be prompted for the output directory during the process."
+    print_info "Press Ctrl+C to interrupt; the current checkpoint is saved."
+    echo ""
+
+    blasphemer --model "$model_name" --fine-tune-only true --fine-tune-dataset "$dataset"
+}
+
 convert_to_gguf() {
     local model_path="$1"
     local quant_type="${2:-Q4_K_M}"
-    
+
     print_header "Converting to GGUF"
     
     if [[ ! -d "$model_path" ]]; then
@@ -975,22 +1023,92 @@ convert_existing_model() {
 resume_processing() {
     print_banner
     print_header "Resume Interrupted Processing"
-    
-    local model_name=$(select_model)
-    
-    print_info "Looking for checkpoint for: $model_name"
+
+    # Locate the checkpoint directory (mirror manage_checkpoints).
+    local checkpoint_dir=""
+    if [[ -d "${SCRIPT_DIR}/.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="${SCRIPT_DIR}/.blasphemer_checkpoints"
+    elif [[ -d "${HOME}/.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="${HOME}/.blasphemer_checkpoints"
+    elif [[ -d "./.blasphemer_checkpoints" ]]; then
+        checkpoint_dir="./.blasphemer_checkpoints"
+    fi
+
+    # Gather checkpoint databases.
+    local checkpoints=()
+    if [[ -n "$checkpoint_dir" ]] && [[ -d "$checkpoint_dir" ]]; then
+        while IFS= read -r -d '' file; do
+            checkpoints+=("$file")
+        done < <(find "$checkpoint_dir" -name "*.db" -type f -print0 2>/dev/null)
+    fi
+
+    local model_name=""
+
+    if [[ ${#checkpoints[@]} -eq 0 ]]; then
+        print_warning "No saved checkpoints found."
+        print_info "Enter the model to resume manually."
+        echo ""
+        model_name=$(select_model)
+    else
+        echo "Select a checkpoint to resume:"
+        echo ""
+        local index=1
+        local model_ids=()
+        for checkpoint in "${checkpoints[@]}"; do
+            local base=$(basename "$checkpoint")
+            local sidecar="${checkpoint%.db}.model"
+            local model_id=""
+            [[ -f "$sidecar" ]] && model_id=$(cat "$sidecar")
+
+            local trials="?"
+            if command -v sqlite3 &> /dev/null; then
+                trials=$(sqlite3 "$checkpoint" "SELECT COUNT(*) FROM trials WHERE state='COMPLETE';" 2>/dev/null || echo "?")
+            fi
+
+            model_ids+=("$model_id")
+            if [[ -n "$model_id" ]]; then
+                printf "%b%d.%b %s ${DIM}(%s trials)${NC}\n" "${BOLD}" "$index" "${NC}" "$model_id" "$trials"
+            else
+                printf "%b%d.%b %s ${DIM}(%s trials, model id unknown)${NC}\n" "${BOLD}" "$index" "${NC}" "$base" "$trials"
+            fi
+            index=$((index + 1))
+        done
+        echo ""
+        printf "%bM.%b Enter model manually\n" "${BOLD}" "${NC}"
+        echo ""
+
+        read -p "Enter checkpoint number (or M): " selection
+        selection=$(echo "$selection" | tr '[:lower:]' '[:upper:]')
+
+        if [[ "$selection" == "M" ]]; then
+            model_name=$(select_model)
+        elif [[ "$selection" =~ ^[0-9]+$ ]] && [[ $selection -ge 1 ]] && [[ $selection -le ${#checkpoints[@]} ]]; then
+            model_name="${model_ids[$((selection-1))]}"
+            if [[ -z "$model_name" ]]; then
+                print_warning "This checkpoint predates model-id tracking; enter it manually."
+                model_name=$(select_model)
+            fi
+        else
+            print_error "Invalid choice"
+            return 1
+        fi
+    fi
+
+    if [[ -z "$model_name" ]]; then
+        print_error "No model selected"
+        return 1
+    fi
+
+    print_info "Resuming: $model_name"
     echo ""
-    
+
     local confirm=$(read_yes_no "Resume processing?" "y")
-    
     if [[ "$confirm" != "y" ]]; then
         print_info "Operation cancelled"
         return 0
     fi
-    
-    print_info "Resuming from checkpoint..."
+
     echo ""
-    
     blasphemer --model "$model_name" --resume true
 }
 
@@ -1052,7 +1170,7 @@ show_help() {
     echo "    ./convert-to-gguf.sh ~/models/model-name"
     echo ""
     echo "  ${DIM}Upload a model:${NC}"
-    echo "    ./blasphemer.sh → Option 7"
+    echo "    ./blasphemer.sh → Option 8"
     echo ""
     
     read -p "Press Enter to continue..."
@@ -1064,46 +1182,36 @@ show_help() {
 
 main() {
     # Setup environment
-    printf "DEBUG: Starting main()\\n" >&2
     setup_environment
-    printf "DEBUG: Environment setup complete\\n" >&2
-    
+
     # Main loop
     while true; do
         print_banner
-        
+
         local operation=$(select_operation)
-        printf "DEBUG: Selected operation: '%s'\\n" "$operation" >&2
-        
+
         case $operation in
-            1) 
-                printf "DEBUG: Calling process_new_model()\\n" >&2
-                process_new_model
-                printf "DEBUG: process_new_model() returned: %s\\n" "$?" >&2
-                ;;
+            1) process_new_model ;;
             2) process_model_only ;;
-            3) convert_existing_model ;;
-            4) resume_processing ;;
-            5) manage_checkpoints ;;
-            6) show_help ;;
-            7) upload_model ;;
-            8) 
+            3) finetune_model_flow ;;
+            4) convert_existing_model ;;
+            5) resume_processing ;;
+            6) manage_checkpoints ;;
+            7) show_help ;;
+            8) upload_model ;;
+            9)
                 print_info "Starting interactive mode..."
                 sleep 1
                 blasphemer
                 ;;
-            9)
+            10)
                 echo ""
                 print_success "Thank you for using Blasphemer!"
                 echo ""
                 exit 0
                 ;;
-            *)
-                printf "DEBUG: Unknown operation: '%s'\\n" "$operation" >&2
-                ;;
         esac
-        
-        printf "DEBUG: Reached end of case statement\\n" >&2
+
         echo ""
         read -p "Press Enter to return to main menu..."
     done

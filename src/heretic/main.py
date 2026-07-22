@@ -9,9 +9,12 @@ from importlib.metadata import version
 from pathlib import Path
 import os
 
-# Disable SSL verification by default for corporate/VPN compatibility
-# MUST be set before huggingface_hub is imported
-os.environ["HF_HUB_DISABLE_SSL_VERIFY"] = "1"
+# SSL/TLS verification for Hugging Face traffic is ON by default. Environments
+# behind a TLS-intercepting corporate proxy or VPN can opt out by setting
+# BLASPHEMER_DISABLE_SSL_VERIFY=1. This MUST be resolved before huggingface_hub
+# is imported, since it reads HF_HUB_DISABLE_SSL_VERIFY at import time.
+if os.environ.get("BLASPHEMER_DISABLE_SSL_VERIFY", "").lower() in ("1", "true", "yes"):
+    os.environ["HF_HUB_DISABLE_SSL_VERIFY"] = "1"
 
 import huggingface_hub
 import optuna
@@ -201,8 +204,10 @@ def run():
     # the command line / config (pure interactive launch). When a model is
     # given, honor the documented CLI behavior and proceed straight to
     # processing (respecting any fine-tuning flags).
-    if not settings.model:
-        # Check if user just wants to upload a model or discover
+    while not settings.model:
+        # Interactive top-level menu, shown only when no model was given.
+        # Each branch either sets settings.model and breaks (to proceed to
+        # processing), or loops back to this menu via continue.
         action = questionary.select(
             "What would you like to do?",
             choices=[
@@ -215,21 +220,21 @@ def run():
             style=Style([("highlighted", "reverse")]),
         ).ask()
 
+        if action is None or action == "Exit":
+            print("[cyan]Goodbye![/]")
+            return
+
+        if action == "Process a model (abliteration/fine-tuning)":
+            # Proceed to model selection below.
+            break
+
         if action == "Quantize & Upload Model":
-             interactive_model_upload() 
-             # interactive_model_upload in upload.py handles GGUF and uploads, 
-             # but we might want to expose quantization explicitly here?
-             # For now, let's stick to the upload workflow which includes GGUF discovery.
-             # Actually, the user asked for "Quantize and upload". 
-             # deploy.py handles quantization. upload.py handles upload.
-             # Let's add a specific quantization flow here.
-             
              print("\n[bold cyan]Quantization & Deployment[/]")
              print("=" * 80)
-             
+
              deployer = Deployer()
              if not deployer.ensure_llama_cpp_build():
-                 return
+                 continue
 
              # Ask what to do
              deploy_action = questionary.select(
@@ -295,68 +300,65 @@ def run():
              
              elif deploy_action == "Upload model/GGUF to HuggingFace":
                  interactive_model_upload()
-                 
-             return
 
-        elif action in ["Search HuggingFace Models", "List Recent Trending Models"]:
+             # Return to the top-level menu after the deploy action.
+             continue
+
+        if action in ["Search HuggingFace Models", "List Recent Trending Models"]:
             if action == "Search HuggingFace Models":
                 query = questionary.text("Enter search query:").ask()
                 if not query:
-                    return
+                    continue
                 print("[cyan]Searching...[/]")
                 models = search_huggingface_models(query, limit=20)
             else:
                 print("[cyan]Fetching trending models...[/]")
                 models = list_recent_trending_models(limit=20)
-                
+
             if not models:
                 print("[yellow]No models found.[/]")
-                return
-                
+                continue
+
             # Create choices
             model_choices = []
             for m in models:
                 info = f"{m['id']} (⬇ {m['downloads']} ❤ {m['likes']})"
                 model_choices.append(Choice(title=info, value=m['id']))
-            
+
             model_choices.append(Choice(title="Back", value="back"))
-            
+
             selected_model_id = questionary.select(
                 "Select a model:",
                 choices=model_choices,
                 style=Style([("highlighted", "reverse")]),
             ).ask()
-            
-            if selected_model_id and selected_model_id != "back":
-                # Ask what to do with the selected model
-                next_step = questionary.select(
-                    f"Action for {selected_model_id}:",
-                    choices=[
-                        "Process this model (Download & Abliterate)",
-                        "View on HuggingFace",
-                        "Back"
-                    ]
-                ).ask()
-                
-                if next_step == "Process this model (Download & Abliterate)":
-                    # Update settings to use this model ID
-                    # settings.model is the key. Transformers will download it automatically.
-                    settings.model = selected_model_id
-                    # Continue to normal flow (break out of this if block to reach preflight)
-                    pass 
-                elif next_step == "View on HuggingFace":
-                    import webbrowser
-                    webbrowser.open(f"https://huggingface.co/{selected_model_id}")
-                    return
-                else:
-                    return
-            else:
-                return
 
-        elif action == "Exit":
-            print("[cyan]Goodbye![/]")
-            return
-    
+            if not selected_model_id or selected_model_id == "back":
+                continue
+
+            # Ask what to do with the selected model
+            next_step = questionary.select(
+                f"Action for {selected_model_id}:",
+                choices=[
+                    "Process this model (Download & Abliterate)",
+                    "View on HuggingFace",
+                    "Back",
+                ],
+                style=Style([("highlighted", "reverse")]),
+            ).ask()
+
+            if next_step == "Process this model (Download & Abliterate)":
+                # Transformers will download this model ID automatically.
+                settings.model = selected_model_id
+                break
+            elif next_step == "View on HuggingFace":
+                import webbrowser
+                webbrowser.open(f"https://huggingface.co/{selected_model_id}")
+                continue
+            else:
+                continue
+
+
     # Check if model is set. If we reached here (Process a model selected or fell through),
     # and settings.model is None, we MUST ask for it.
     if not settings.model:
@@ -615,9 +617,7 @@ def run():
             # Build menu choices
             menu_choices = [
                 "Save the model to a local folder",
-                "Upload the model to Hugging Face",
-                "Upload a different model directory to Hugging Face",
-                "Upload any model (browse and discover)",
+                "Upload to Hugging Face",
             ]
             
             # Add fine-tuning option if dataset is configured
@@ -721,7 +721,43 @@ def run():
                         model.tokenizer.save_pretrained(save_directory)
                         print(f"Model saved to [bold]{save_directory}[/].")
 
-                    case "Upload the model to Hugging Face":
+                    case "Upload to Hugging Face":
+                        upload_source = questionary.select(
+                            "What would you like to upload?",
+                            choices=[
+                                "This decensored model",
+                                "Another model directory",
+                                "Browse and discover models/GGUFs",
+                                "Back",
+                            ],
+                            style=Style([("highlighted", "reverse")]),
+                        ).ask()
+
+                        if upload_source is None or upload_source == "Back":
+                            continue
+
+                        if upload_source == "Another model directory":
+                            model_dir = questionary.path(
+                                "Path to the model directory:",
+                                only_directories=True,
+                            ).ask()
+                            if not model_dir:
+                                print("[yellow]Upload cancelled[/]")
+                                continue
+                            import os
+                            model_dir = os.path.expanduser(model_dir)
+                            model_dir = os.path.abspath(model_dir)
+                            upload_model_to_huggingface(
+                                model_path=model_dir,
+                                model_name=Path(model_dir).name,
+                            )
+                            continue
+
+                        if upload_source == "Browse and discover models/GGUFs":
+                            interactive_model_upload()
+                            continue
+
+                        # upload_source == "This decensored model"
                         # We don't use huggingface_hub.login() because that stores the token on disk,
                         # and since this program will often be run on rented or shared GPU servers,
                         # it's better to not persist credentials.
@@ -791,32 +827,6 @@ def run():
                             card.push_to_hub(repo_id, token=token)
 
                         print(f"Model uploaded to [bold]{repo_id}[/].")
-
-                    case "Upload a different model directory to Hugging Face":
-                        # Ask for model directory path
-                        model_dir = questionary.path(
-                            "Path to the model directory:",
-                            only_directories=True,
-                        ).ask()
-                        
-                        if not model_dir:
-                            print("[yellow]Upload cancelled[/]")
-                            continue
-                        
-                        # Expand path
-                        import os
-                        model_dir = os.path.expanduser(model_dir)
-                        model_dir = os.path.abspath(model_dir)
-                        
-                        # Upload the model
-                        upload_model_to_huggingface(
-                            model_path=model_dir,
-                            model_name=Path(model_dir).name,
-                        )
-
-                    case "Upload any model (browse and discover)":
-                        # Use interactive model discovery and upload
-                        interactive_model_upload()
 
                     case "Chat with the model":
                         print()

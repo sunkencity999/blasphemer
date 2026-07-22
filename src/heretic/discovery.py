@@ -102,8 +102,9 @@ def search_huggingface_models(query: str, limit: int = 10) -> List[Dict]:
     except (SSLError, ConnectionError) as e:
         if "CERTIFICATE_VERIFY_FAILED" in str(e):
             print("[red]SSL Certificate Verification Failed.[/]")
-            print("[yellow]SSL verification is disabled by default, but connection still failed.[/]")
-            print("Check your network connection or proxy settings.")
+            print("[yellow]If you are behind a TLS-intercepting corporate proxy or VPN,[/]")
+            print("[yellow]set BLASPHEMER_DISABLE_SSL_VERIFY=1 to bypass verification.[/]")
+            print("Otherwise, check your network connection or proxy settings.")
         else:
              print(f"[red]Network Error: {e}[/]")
         return []
@@ -148,8 +149,9 @@ def list_recent_trending_models(limit: int = 10) -> List[Dict]:
     except (SSLError, ConnectionError) as e:
         if "CERTIFICATE_VERIFY_FAILED" in str(e):
             print("[red]SSL Certificate Verification Failed.[/]")
-            print("[yellow]SSL verification is disabled by default, but connection still failed.[/]")
-            print("Check your network connection or proxy settings.")
+            print("[yellow]If you are behind a TLS-intercepting corporate proxy or VPN,[/]")
+            print("[yellow]set BLASPHEMER_DISABLE_SSL_VERIFY=1 to bypass verification.[/]")
+            print("Otherwise, check your network connection or proxy settings.")
         else:
              print(f"[red]Network Error: {e}[/]")
         return []

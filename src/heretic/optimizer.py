@@ -55,6 +55,14 @@ class Optimizer:
         study_name = f"blasphemer_{Path(self.settings.model).name}_{model_hash}"
         storage_path = checkpoint_dir / f"{study_name}.db"
         storage_url = f"sqlite:///{storage_path}"
+
+        # Record the exact model identifier next to the checkpoint so the
+        # launcher can offer resume-by-selection without the user having to
+        # retype it (the study name only preserves the model's basename + hash).
+        try:
+            (checkpoint_dir / f"{study_name}.model").write_text(self.settings.model)
+        except OSError:
+            pass
         
         # Check for existing study
         existing_study = None
